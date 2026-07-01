@@ -1,0 +1,15 @@
+# Secrets
+backend/.env
+
+# Uploaded + rendered deck storage (regenerated at runtime)
+backend/storage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db

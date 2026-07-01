@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deck Agent — Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <span class="eyebrow">Deck Agent — Studio</span>
+      <h1>Upload a deck. Make it talk. Publish a link.</h1>
+      <p class="tag">Drop in a PDF, PPTX or PPT. We render every page, write a spoken walkthrough grounded in your slides, then publish a full-screen link anyone can watch — that answers questions and hands off to you when it can't.</p>
+    </div>
+    <div class="stagebar"><span id="stagelabel">STEP 1 · UPLOAD</span></div>
+  </div>
+
+  <!-- ============ STEP 1: UPLOAD ============ -->
+  <div class="card" id="uploadCard">
+    <h2>1 — Load a deck</h2>
+    <p class="hint">PDF gets full page rendering. PPTX/PPT are converted server-side (needs LibreOffice) — otherwise text is extracted without page images.</p>
+    <div class="dropzone" id="dropzone">
+      <div class="big">Drop your deck here</div>
+      <div class="sub">or click to browse</div>
+      <div class="formats">.PDF · .PPTX · .PPT</div>
+      <input type="file" id="fileInput" accept=".pdf,.pptx,.ppt" style="display:none;" />
+    </div>
+    <div class="progress" id="uploadProgress">
+      <span id="progressLabel">Uploading & rendering pages…</span>
+      <div class="bar"><i></i></div>
+    </div>
+    <div class="err" id="uploadErr" style="display:none;"></div>
+  </div>
+
+  <!-- ============ STEP 2/3: WORKSPACE ============ -->
+  <div class="workspace" id="workspace">
+    <div class="ws-head">
+      <h2 id="deckTitle">Deck</h2>
+      <span class="pill" id="pageCountPill">0 pages</span>
+      <span class="pill warn" id="renderPill" style="display:none;">text-only</span>
+      <div class="spacer"></div>
+      <label class="small" style="flex-direction:row;align-items:center;gap:8px;">Rep name
+        <input class="text" id="repName" value="Priya" style="width:140px;" />
+      </label>
+      <button class="ghost" id="newDeckBtn">Upload another</button>
+      <button class="primary" id="genBtn">Generate narration →</button>
+    </div>
+    <div class="warn" id="wsWarn" style="display:none;"></div>
+    <div class="err" id="genErr" style="display:none;"></div>
+
+    <p class="hint" id="reviewHint" style="display:none;">Click any page to enlarge. Edit narration below each slide — nothing is published until you press Publish.</p>
+
+    <div class="grid" id="pageGrid"></div>
+
+    <div class="actionbar">
+      <div class="voice-ctl">
+        <label>Voice
+          <select class="text" id="voiceSelect" style="width:220px;"></select>
+        </label>
+        <label>Speed
+          <input type="range" id="voiceRate" min="0.7" max="1.3" step="0.05" value="1" />
+        </label>
+        <button class="ghost" id="previewVoiceBtn">▶ Preview voice</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="primary" id="enterLiveBtn" disabled>Walk through your build →</button>
+    </div>
+  </div>
+
+  <!-- ============ STEP 4: LIVE PREVIEW — walk through your own build ============ -->
+  <div class="live" id="liveSession">
+    <div class="console">
+      <div class="card">
+        <h3>Engagement <span id="repInitial"></span></h3>
+        <div class="metric-row"><span>Opened</span><span class="val" id="mOpened">—</span></div>
+        <div class="metric-row"><span>Slides watched</span><span class="val" id="mWatched">0 / 0</span></div>
+        <div class="metric-row"><span>Completion</span><span class="val" id="mCompletion">0%</span></div>
+        <div class="metric-row"><span>Questions asked</span><span class="val" id="mQuestions">0</span></div>
+      </div>
+      <div class="card">
+        <h3>Slide dwell time</h3>
+        <div id="dwellList"></div>
+      </div>
+      <div class="card">
+        <h3>Rep inbox — live signal</h3>
+        <div id="inboxList"><div class="inbox-empty">No questions yet. Ask something on the right →</div></div>
+      </div>
+      <div class="card">
+        <h3>Publish</h3>
+        <p class="hint" style="margin:0 0 12px;">Happy with the walkthrough? Publish a full-screen link anyone can watch.</p>
+        <button class="primary" id="publishBtn" style="width:100%;">Publish → shareable link</button>
+        <div class="share-card" id="shareCard">
+          <div class="share-link-row">
+            <input id="shareLink" readonly />
+            <button class="ghost" id="copyLinkBtn">Copy</button>
+            <button class="primary" id="openLinkBtn">Open ↗</button>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:-4px;">
+        <button class="ghost" id="backToReviewBtn" style="font-size:12px;">← Back to review</button>
+      </div>
+    </div>
+
+    <div class="prospect">
+      <div class="player-card">
+        <div class="player-head">
+          <span class="who">Preview · how a recipient experiences it</span>
+          <div class="progress-dots" id="progressDots"></div>
+        </div>
+        <div class="stage-view">
+          <div class="speaking-dot"><span class="pulse" id="speakDot"></span><span id="speakLabel">idle</span></div>
+          <div class="stage-inner" id="stageInner"></div>
+          <div class="caption" id="slideCaption"></div>
+        </div>
+        <div class="controls">
+          <button class="ghost" id="prevBtn">◀ Prev</button>
+          <button class="primary" id="playBtn">▶ Play narration</button>
+          <button class="ghost" id="nextBtn">Next ▶</button>
+          <div class="spacer"></div>
+          <span style="font-size:11.5px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;" id="slideCounter">—</span>
+        </div>
+      </div>
+
+      <div class="qa-card">
+        <h3>Ask the deck a question</h3>
+        <div class="transcript" id="transcript"></div>
+        <div class="suggest" id="suggestRow"></div>
+        <div class="qa-input-row">
+          <input id="qaInput" type="text" placeholder="e.g. how is pricing structured?" />
+          <button class="primary" id="askBtn">Ask</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="signal-beam" id="signalBeam"></div>
+
+  <p class="footer-note">Narration and answers are grounded strictly in your uploaded deck. When confidence is low, the agent hands off to the rep instead of guessing.</p>
+</div>
+
+<!-- lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose">✕</button>
+  <button class="lb-nav lb-prev" id="lbPrev">◀</button>
+  <img id="lbImg" src="" alt="" />
+  <button class="lb-nav lb-next" id="lbNext">▶</button>
+  <div class="lb-cap" id="lbCap"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="studio.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deck Agent — Presentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="viewer">
+  <div class="v-shell" id="shell">
+    <div class="v-loading" id="loading">Loading presentation…</div>
+  </div>
+
+  <template id="playerTpl">
+    <div class="v-top">
+      <span class="v-title" id="vTitle">Deck</span>
+      <div class="spacer" style="flex:1;"></div>
+      <span class="v-brand">Deck Agent</span>
+    </div>
+    <div class="v-main">
+      <div class="v-stage-wrap">
+        <div class="v-stage" id="vStage">
+          <div class="v-speak"><span class="pulse" id="vSpeakDot"></span><span id="vSpeakLabel">idle</span></div>
+          <div id="vSlideHost"></div>
+          <div class="v-caption" id="vCaption"></div>
+        </div>
+        <div class="v-controls">
+          <div class="v-dots" id="vDots"></div>
+          <span class="v-counter" id="vCounter">—</span>
+          <button id="vPrev">◀</button>
+          <button class="primary" id="vPlay">▶ Play</button>
+          <button id="vNext">▶</button>
+        </div>
+      </div>
+      <div class="v-side">
+        <h3>Ask this deck</h3>
+        <div class="v-transcript" id="vTranscript"></div>
+        <div class="v-suggest" id="vSuggest"></div>
+        <div class="v-ask">
+          <input id="vInput" type="text" placeholder="Ask a question about this deck…" />
+          <button class="primary" id="vAsk">Ask</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+<script src="/config.js"></script>
+<script src="/viewer.js"></script>
+</body>
+</html>
