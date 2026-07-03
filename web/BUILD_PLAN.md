@@ -118,10 +118,10 @@ then `assertDeckOwner()` (the pattern is already wired in each handler).
 |---|---|---|---|
 | POST | /api/auth/signup | `api/auth/signup/route.ts` | stub (usually client-side) |
 | POST | /api/auth/login | `api/auth/login/route.ts` | stub |
-| GET | /api/auth/google/callback | `api/auth/google/callback/route.ts` | stub |
-| POST | /api/auth/forgot-password | `api/auth/forgot-password/route.ts` | stub |
-| POST | /api/auth/reset-password | `api/auth/reset-password/route.ts` | stub |
-| GET | /api/auth/verify-email | `api/auth/verify-email/route.ts` | stub |
+| GET | /api/auth/google/callback | `api/auth/google/callback/route.ts` | **wired** (exchangeCodeForSession + redirect) |
+| POST | /api/auth/forgot-password | `api/auth/forgot-password/route.ts` | stub (client calls `supabase.auth.resetPasswordForEmail` directly) |
+| POST | /api/auth/reset-password | `api/auth/reset-password/route.ts` | stub (client calls `supabase.auth.updateUser` directly) |
+| GET | /api/auth/verify-email | `api/auth/verify-email/route.ts` | **wired** (verifyOtp + redirect) |
 | GET | /api/decks | `api/decks/route.ts` | **wired** (owner list) |
 | POST | /api/decks | `api/decks/route.ts` | stub (auth wired) |
 | GET | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (owner + fetch) |

@@ -73,7 +73,11 @@ supabase/migrations/ SQL schema + RLS
 
 ## Status of endpoints
 
-`GET /api/decks`, `GET /api/decks/[id]`, `GET /api/d/[token]`, and
-`POST /api/d/[token]/ask` are **wired**. The rest are scaffolded **stubs**
-(`501` + `todo`) with the `requireUser` + `assertDeckOwner` security pattern
-already in place. Fill them in following the Phase 1 order in `BUILD_PLAN.md`.
+`GET /api/decks`, `GET /api/decks/[id]`, `GET /api/d/[token]`,
+`POST /api/d/[token]/ask`, `GET /api/auth/verify-email`, and
+`GET /api/auth/google/callback` are **wired**. Signup, login, logout, forgot
+password, and reset password are wired client-side directly against
+`supabase-js` (see `src/app/(auth)/*` and `src/components/LogoutButton.tsx`).
+The rest are scaffolded **stubs** (`501` + `todo`) with the `requireUser` +
+`assertDeckOwner` security pattern already in place. Fill them in following
+the Phase 1 order in `BUILD_PLAN.md`.

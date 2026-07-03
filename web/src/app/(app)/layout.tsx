@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LogoutButton } from "@/components/LogoutButton";
 
 /**
  * Authenticated app shell. The middleware (lib/supabase/middleware.ts) already
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/decks/new" className="muted">New deck</Link>
           <span style={{ flex: 1 }} />
           <Link href="/account" className="muted">Account</Link>
+          <LogoutButton />
         </div>
       </header>
       <main className="wrap">{children}</main>
