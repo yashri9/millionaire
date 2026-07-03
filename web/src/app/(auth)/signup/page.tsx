@@ -23,8 +23,29 @@ export default function SignupPage() {
       return;
     }
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({ email, password });
-    setMsg(error ? "Try logging in, or use ‘forgot password’." : "Check your email to verify.");
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+    });
+    if (error) {
+      setMsg("Try logging in, or use ‘forgot password’.");
+      return;
+    }
+    window.location.href = `/check-email?email=${encodeURIComponent(email)}`;
+  }
+
+  async function onGoogle() {
+    if (!isSupabaseConfigured()) {
+      setMsg("Dev mode: add Supabase env to enable Google sign-in.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/api/auth/google/callback` },
+    });
+    if (error) setMsg("Couldn't start Google sign-in. Try again.");
   }
 
   return (
@@ -39,7 +60,7 @@ export default function SignupPage() {
           Sign up
         </button>
       </form>
-      <button className="btn ghost" style={{ marginTop: 10, width: "100%" }}>
+      <button className="btn ghost" style={{ marginTop: 10, width: "100%" }} type="button" onClick={onGoogle}>
         Continue with Google
       </button>
       {msg && <p className="muted">{msg}</p>}

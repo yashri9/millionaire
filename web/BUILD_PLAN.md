@@ -62,7 +62,10 @@ web/
 | `llm.ts` | **Pluggable LLM** (Groq default, Anthropic optional) — TS port of `backend/llm.py` |
 | `prompts.ts` | `generateNarration`, `answerQuestion` (grounded + escalation) |
 | `email.ts` | Resend/Postmark interface + `dev` console fallback; `sendEscalationEmail` |
-| `parse.ts` | `parseDeck` interface + `validateUpload` (type/size, 25MB) |
+| `parse.ts` | `parseDeck` — PPTX (unzip + presentation.xml order) / PDF (pdf-parse) text extraction; `validateUpload` (type/size, 25MB) |
+| `render.ts` | `renderPdfPages` (pdfjs-dist + @napi-rs/canvas, pure Node) + `convertToPdf` (LibreOffice, PPTX/PPT -> PDF) |
+| `deckProcessor.ts` | `processDeckUpload` — orchestrates parse.ts + render.ts into one pipeline |
+| `storage.ts` | `uploadRenderedImages` / `signSlideImagePaths` — page images in the private decks bucket |
 | `jobs.ts` | Async job design (jobs table + poller) for parse/generate |
 | `tokens.ts` | `generateShareToken` (cryptographically random, non-enumerable) |
 | `rateLimit.ts` | Recipient ask limit (20/session) + graceful over-limit message |
@@ -100,12 +103,12 @@ web/
 | 4.4 | Dashboard | `(app)/dashboard/page.tsx` | deck grid, status badges, empty state, sort/filter, upload-failed retry |
 | 4.5 | Upload | `(app)/decks/new/page.tsx` | client type/size reject; async parse + progress; parsed-preview confirm; no-text manual entry |
 | 4.6 | Script generation | `POST /api/decks/:id/generate-script` | explicit trigger; per-slide stream + regenerate |
-| 4.7 | Script editor | `(app)/decks/[id]/edit/page.tsx` | thumb list; debounced autosave + Saved/Saving/Failed; resume slide; regenerate-all confirm |
+| 4.7 | Script editor + rehearsal | `(app)/decks/[id]/edit/{page,Workspace,LivePreview,Lightbox}.tsx` | page grid + lightbox; debounced autosave + Saved/Saving/Failed; voice picker/preview; "walk through your build" rehearsal (console + player + Q&A via `POST /api/decks/:id/rehearse-ask`); resume slide; regenerate-all confirm — not done |
 | 4.8 | Publish | `POST /api/decks/:id/publish` | verified email + all-narration gate; snapshot; create/rotate share |
 | 4.9 | Share | Share UI + `POST /api/shares/:token/revoke` | copy link; revoke; regenerate token |
-| 4.10 | Analytics | `(app)/decks/[id]/analytics/page.tsx`, `GET /api/decks/:id/analytics` | totals, per-slide drop-off, question log, poll 15s, empty state |
-| 4.11 | Account/settings | `(app)/account/page.tsx` | name/password, Google status, delete → 30-day soft-delete |
-| 4.12 | Recipient runtime | `d/[token]/page.tsx` + `Player.tsx`, `GET/POST /api/d/[token]*` | TTS + fallback, events, Q&A escalation, "link not active" page |
+| 4.10 | Analytics | `(app)/decks/[id]/analytics/page.tsx`, `GET /api/decks/:id/analytics` | done: totals, per-slide drop-off, question log, poll 15s, empty state. Aggregates across every share the deck has had, not just the active one |
+| 4.11 | Account/settings | `(app)/account/page.tsx`, `DELETE /api/account` | done: name/password (direct supabase-js, self-scoped RLS), Google status. Delete is **immediate**, not the PRD's 30-day soft-delete (that needs a pending-deletion flag + purge job — bigger than "basic settings"); relies on `on delete cascade` from decks.user_id for cleanup |
+| 4.12 | Recipient runtime | `d/[token]/page.tsx` + `Player.tsx`, `GET/POST /api/d/[token]*` | done: session created per page view, opened/slide_viewed/completed events, Q&A escalation, "link not active" page. Not done: TTS narration playback (still text-only) |
 
 ---
 
@@ -118,23 +121,25 @@ then `assertDeckOwner()` (the pattern is already wired in each handler).
 |---|---|---|---|
 | POST | /api/auth/signup | `api/auth/signup/route.ts` | stub (usually client-side) |
 | POST | /api/auth/login | `api/auth/login/route.ts` | stub |
-| GET | /api/auth/google/callback | `api/auth/google/callback/route.ts` | stub |
-| POST | /api/auth/forgot-password | `api/auth/forgot-password/route.ts` | stub |
-| POST | /api/auth/reset-password | `api/auth/reset-password/route.ts` | stub |
-| GET | /api/auth/verify-email | `api/auth/verify-email/route.ts` | stub |
+| GET | /api/auth/google/callback | `api/auth/google/callback/route.ts` | **wired** (exchangeCodeForSession + redirect) |
+| POST | /api/auth/forgot-password | `api/auth/forgot-password/route.ts` | stub (client calls `supabase.auth.resetPasswordForEmail` directly) |
+| POST | /api/auth/reset-password | `api/auth/reset-password/route.ts` | stub (client calls `supabase.auth.updateUser` directly) |
+| GET | /api/auth/verify-email | `api/auth/verify-email/route.ts` | **wired** (verifyOtp + redirect) |
 | GET | /api/decks | `api/decks/route.ts` | **wired** (owner list) |
-| POST | /api/decks | `api/decks/route.ts` | stub (auth wired) |
-| GET | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (owner + fetch) |
-| PATCH | /api/decks/:id | `api/decks/[id]/route.ts` | stub (ownership wired) |
-| DELETE | /api/decks/:id | `api/decks/[id]/route.ts` | stub (ownership wired) |
-| POST | /api/decks/:id/parse | `api/decks/[id]/parse/route.ts` | stub (ownership wired) |
-| POST | /api/decks/:id/generate-script | `api/decks/[id]/generate-script/route.ts` | stub (ownership wired) |
-| PATCH | /api/decks/:id/script | `api/decks/[id]/script/route.ts` | stub (ownership wired) |
-| POST | /api/decks/:id/publish | `api/decks/[id]/publish/route.ts` | stub (verified+ownership wired) |
-| GET | /api/decks/:id/analytics | `api/decks/[id]/analytics/route.ts` | stub (ownership wired) |
-| POST | /api/shares/:token/revoke | `api/shares/[token]/revoke/route.ts` | stub (owner-via-share wired) |
+| POST | /api/decks | `api/decks/route.ts` | **wired** (upload to Storage, insert deck, inline parse -> slides) |
+| GET | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (owner + fetch, incl. active share) |
+| PATCH | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (title / last_viewed_slide_index) |
+| DELETE | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (soft-delete) |
+| POST | /api/decks/:id/parse | `api/decks/[id]/parse/route.ts` | **wired** (re-parse retry after parse_failed) |
+| POST | /api/decks/:id/generate-script | `api/decks/[id]/generate-script/route.ts` | **wired** (generateNarration -> new draft script_versions) |
+| PATCH | /api/decks/:id/script | `api/decks/[id]/script/route.ts` | **wired** (autosave into draft, or new draft post-publish) |
+| POST | /api/decks/:id/rehearse-ask | `api/decks/[id]/rehearse-ask/route.ts` | **wired** (grounded Q&A against the draft, owner-only, not persisted) |
+| POST | /api/decks/:id/publish | `api/decks/[id]/publish/route.ts` | **wired** (validate, snapshot, create/rotate share) |
+| GET | /api/decks/:id/analytics | `api/decks/[id]/analytics/route.ts` | **wired** (opens/completion/per-slide views/question log) |
+| POST | /api/shares/:token/revoke | `api/shares/[token]/revoke/route.ts` | **wired** |
 | GET | /api/d/:token | `api/d/[token]/route.ts` | **wired** (service-role read) |
-| POST | /api/d/:token/event | `api/d/[token]/event/route.ts` | stub (active-check wired) |
+| POST | /api/d/:token/event | `api/d/[token]/event/route.ts` | **wired** (opened/slide_viewed/completed, session-scoped to the token) |
+| DELETE | /api/account | `api/account/route.ts` | **wired** (immediate delete via auth.admin, not the 30-day soft-delete) |
 | POST | /api/d/:token/ask | `api/d/[token]/ask/route.ts` | **fully wired** (LLM + escalate + rate-limit + persist) |
 
 Stubs return **501 Not Implemented** with a `todo` field — the auth/ownership
@@ -218,12 +223,16 @@ gate runs *before* the 501 so the security pattern is real from day one.
   (FastAPI on `:8000`, Next.js on `:3000`).
 - **Logic parity path:** the narration + grounded-Q&A prompts are already
   ported to `web/src/lib/prompts.ts` and the provider to `web/src/lib/llm.ts`
-  (1:1 with `backend/llm.py`). Remaining port: **deck parsing/rendering** —
-  `backend/server.py` uses LibreOffice + PyMuPDF. Options:
-  1. Port text extraction to Node (`officeparser`/`pdf-parse`) in `lib/parse.ts`.
-  2. For page-image rendering, either add a Node renderer later or have the
-     Next.js parse job **call the existing Python service** during the
-     transition window.
+  (1:1 with `backend/llm.py`). **Deck parsing** is now ported too:
+  `lib/parse.ts` unzips `.pptx` directly (reading `ppt/slides/slideN.xml`,
+  ordered via `presentation.xml` + rels rather than filename — PowerPoint
+  doesn't rename files when slides are reordered) and uses `pdf-parse` with a
+  custom per-page `pagerender` for `.pdf`. Page-image rendering (thumbnails,
+  like the FastAPI prototype's PyMuPDF path) is not ported — text-only for now.
+  Parsing runs **inline** in `POST /api/decks` rather than through
+  `lib/jobs.ts`'s job-table design: at the 25MB cap, officeparser/pdf-parse are
+  fast enough that a queue + poller would be infra without a matching need yet;
+  `jobs.ts` is left as the documented design for if/when that changes.
 - **Retirement:** once `web/` reaches Phase 1 acceptance (PRD §13), the FastAPI
   prototype can be retired (or kept as an internal parsing microservice if we
   keep the PyMuPDF renderer).
@@ -247,16 +256,33 @@ Browser-safe: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
 
 Build in this order — each step unblocks the next:
 
-1. **Supabase project + migrations** — apply `0001_init.sql`, `0002_rls.sql`;
-   enable Email + Google auth; create the `decks` Storage bucket.
+1. **Supabase project + migrations** — apply `0001_init.sql` through
+   `0004_page_images.sql`; enable Email + Google auth; create the `decks`
+   Storage bucket.
 2. **Auth** (§4.1–4.3) — signup/login/verify/reset; middleware gating; profile
    auto-create trigger already in migration.
-3. **Upload + parse** (§4.5) — `POST /api/decks` (Storage + deck row + job),
-   parse worker (`lib/parse` + `lib/jobs`), parsed-preview confirm.
-4. **Script gen + edit + autosave** (§4.6–4.7) — `generate-script`, editor UI,
-   debounced `PATCH /script`, resume-slide.
-5. **Publish + share** (§4.8–4.9) — validation gate, `script_versions` snapshot,
-   `shares` token, revoke/regenerate.
+3. **Upload + parse + render** (§4.5) — done: `POST /api/decks` (Storage +
+   deck row + inline `lib/deckProcessor` = `lib/parse` text + `lib/render`
+   page images), retry via `POST /api/decks/:id/parse`, upload UI with
+   client-side validation. PPTX/PPT render via LibreOffice (`lib/render.ts`);
+   falls back to text-only if LibreOffice isn't found, same as the FastAPI
+   prototype. Not done: parsed-preview confirm step, no-text per-slide manual
+   entry, resume-slide.
+4. **Script gen + edit + rehearse + autosave** (§4.6–4.7) — done: the editor
+   (`decks/[id]/edit`) is now the full Studio experience (parity with
+   `deck_agent_v0/frontend/studio.js`): page grid with real slide images,
+   `generate-script`, debounced `PATCH /script` autosave, a voice picker +
+   speed slider + preview (Web Speech API), and a "walk through your build"
+   rehearsal mode — simulated engagement console (dwell time, completion,
+   rep inbox), the actual player (slide image + spoken narration + progress
+   dots), and grounded Q&A against the draft narration
+   (`POST /api/decks/:id/rehearse-ask`, not persisted — see
+   `/api/d/:token/ask` for the real recipient path). Publish happens from
+   inside rehearsal. Not done: per-slide streaming/regenerate, resume-slide,
+   "regenerate all" confirm dialog.
+5. **Publish + share** (§4.8–4.9) — done: validation gate, `script_versions`
+   snapshot, `shares` token create/rotate, copy link, revoke. Not done: QR
+   code, explicit republish confirm dialog (currently republishes immediately).
 6. **Recipient runtime persisted** (§4.12) — `Player` TTS + events; `ask` route
    already wired (add session creation + persistence).
 7. **Analytics** (§4.10) — aggregate endpoint + dashboard charts, 15s polling.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RecipientDeck } from "@/lib/recipient";
 
 /**
@@ -8,14 +8,33 @@ import type { RecipientDeck } from "@/lib/recipient";
  * + grounded Q&A. Q&A NEVER shows a raw error — on failure the server route
  * auto-escalates and returns a warm hand-off line.
  *
- * TODO(phase1): TTS via Web Speech API with hasTTS fallback, progress dots,
- * event logging (POST /api/d/:token/event: opened/slide_viewed/completed).
+ * Event logging (PRD §4.10): slide_viewed on navigation, completed on
+ * reaching the last slide — best-effort, never blocks the UI on failure.
  */
-export function Player({ deck }: { deck: RecipientDeck }) {
+export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: string | null }) {
   const [idx, setIdx] = useState(0);
   const [q, setQ] = useState("");
   const [log, setLog] = useState<{ role: "you" | "agent"; text: string; escalated?: boolean }[]>([]);
   const slide = deck.slides[idx];
+  const completedLogged = useRef(false);
+
+  function logEvent(type: "slide_viewed" | "completed", payload?: Record<string, unknown>) {
+    if (!sessionId) return;
+    fetch(`/api/d/${deck.token}/event`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, type, payload }),
+    }).catch(() => {});
+  }
+
+  useEffect(() => {
+    logEvent("slide_viewed", { slide_index: slide?.index });
+    if (idx === deck.slides.length - 1 && !completedLogged.current) {
+      completedLogged.current = true;
+      logEvent("completed");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx]);
 
   async function ask() {
     const question = q.trim();
@@ -26,7 +45,7 @@ export function Player({ deck }: { deck: RecipientDeck }) {
       const r = await fetch(`/api/d/${deck.token}/ask`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, session_id: sessionId }),
       });
       const data = await r.json();
       setLog((l) => [...l, { role: "agent", text: data.answer, escalated: data.escalate }]);

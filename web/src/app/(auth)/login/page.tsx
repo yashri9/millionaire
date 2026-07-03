@@ -1,18 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 
 /**
  * PRD §4.2 Log in. Generic error copy (no field-level enumeration).
- * TODO(phase1): soft rate-limit messaging, unverified-email banner, Google OAuth.
+ * TODO(phase1): soft rate-limit messaging, unverified-email banner.
  */
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("error") === "oauth_failed") {
+      setMsg("Google sign-in didn't complete. Please try again.");
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +30,19 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMsg("Email or password is incorrect.");
     else window.location.href = "/dashboard";
+  }
+
+  async function onGoogle() {
+    if (!isSupabaseConfigured()) {
+      setMsg("Dev mode: add Supabase env to enable Google sign-in.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/api/auth/google/callback` },
+    });
+    if (error) setMsg("Couldn't start Google sign-in. Try again.");
   }
 
   return (
@@ -38,7 +57,7 @@ export default function LoginPage() {
           Log in
         </button>
       </form>
-      <button className="btn ghost" style={{ marginTop: 10, width: "100%" }}>
+      <button className="btn ghost" style={{ marginTop: 10, width: "100%" }} type="button" onClick={onGoogle}>
         Continue with Google
       </button>
       {msg && <p className="muted">{msg}</p>}

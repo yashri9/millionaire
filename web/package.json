@@ -11,22 +11,25 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.2",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.58.0",
     "next": "15.5.4",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^6.1.200",
     "react": "19.1.1",
     "react-dom": "19.1.1",
-    "@supabase/supabase-js": "^2.58.0",
-    "@supabase/ssr": "^0.7.0",
-    "officeparser": "^5.2.0",
-    "pdf-parse": "^1.1.1",
     "resend": "^4.6.0",
+    "yauzl": "^3.4.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "typescript": "^5.9.2",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/yauzl": "^3.4.0",
     "eslint": "^9.36.0",
-    "eslint-config-next": "15.5.4"
+    "eslint-config-next": "15.5.4",
+    "typescript": "^5.9.2"
   }
 }

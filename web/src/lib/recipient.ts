@@ -21,12 +21,20 @@ export type RecipientDeck = {
   scriptVersionId: string;
   repName: string;
   title: string;
-  slides: { index: number; title: string; bullets: string[]; narration: string }[];
+  slides: { index: number; title: string; bullets: string[]; narration: string; text: string }[];
 };
 
 export type RecipientLookup =
   | { ok: true; deck: RecipientDeck }
   | { ok: false; reason: "inactive" | "not_found" | "unconfigured" };
+
+/** Creates a session row for a fresh recipient page view (PRD §4.10/§4.12). */
+export async function createSession(shareId: string): Promise<string | null> {
+  const db = createServiceClient();
+  const { data, error } = await db.from("sessions").insert({ share_id: shareId }).select("id").single();
+  if (error || !data) return null;
+  return data.id;
+}
 
 export async function getPublishedDeckByToken(token: string): Promise<RecipientLookup> {
   if (!isSupabaseConfigured()) return { ok: false, reason: "unconfigured" };
@@ -69,6 +77,9 @@ export async function getPublishedDeckByToken(token: string): Promise<RecipientL
         title: s.title,
         bullets: s.bullets ?? [],
         narration: narrationBySlide.get(s.id) ?? "",
+        // Grounds answerQuestion() (lib/prompts.ts reads SlideInput.text) —
+        // without this, Q&A was answering from empty per-slide content.
+        text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
       })),
     },
   };

@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { handle, notImplemented, ApiError } from "@/lib/http";
+import { handle, ApiError } from "@/lib/http";
 import { createServerClient } from "@/lib/supabase/server";
 
 type Ctx = { params: Promise<{ token: string }> };
@@ -21,6 +21,10 @@ export async function POST(_req: Request, { params }: Ctx) {
       .eq("token", token)
       .maybeSingle();
     if (!share) throw new ApiError(404, "Share not found");
-    return notImplemented("Set shares.status='revoked' for this token");
+
+    const { error } = await supabase.from("shares").update({ status: "revoked" }).eq("id", share.id);
+    if (error) throw error;
+
+    return Response.json({ ok: true });
   });
 }

@@ -7,6 +7,8 @@ This folder holds the Postgres schema and RLS policies for Deck Agent v1
 migrations/
   0001_init.sql   # enums, tables, indexes, soft-delete, triggers, jobs table
   0002_rls.sql    # Row Level Security: owner-only access; recipient path is service-role only
+  0003_grants.sql # GRANT base table privileges to `authenticated` (RLS alone isn't enough — see file)
+  0004_page_images.sql # adds slides.image_path / slides.thumb_path (rendered page images)
 ```
 
 ## Apply the migrations
@@ -26,7 +28,7 @@ If `db push` times out on the direct `db.*.supabase.co` host (IPv6/network),
 run `supabase login` + `link` first (uses the Supabase API), or use Option B.
 
 The CLI applies files in `supabase/migrations/` in filename order
-(`0001_` then `0002_`).
+(`0001_` then `0002_` then `0003_` then `0004_`).
 
 ### Troubleshooting: "type already exists" / partial migration
 
@@ -48,6 +50,11 @@ npx supabase db push
 1. Open your project → **SQL Editor**.
 2. Paste the contents of `0001_init.sql`, run it.
 3. Paste the contents of `0002_rls.sql`, run it.
+4. Paste the contents of `0003_grants.sql`, run it. Skipping this step causes
+   every authenticated query to fail with `permission denied for table X`
+   even though RLS policies are in place — RLS restricts rows, it doesn't
+   substitute for the base GRANT.
+5. Paste the contents of `0004_page_images.sql`, run it.
 
 ## What to configure in the dashboard (not in SQL)
 
