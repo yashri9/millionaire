@@ -28,6 +28,14 @@ export type RecipientLookup =
   | { ok: true; deck: RecipientDeck }
   | { ok: false; reason: "inactive" | "not_found" | "unconfigured" };
 
+/** Creates a session row for a fresh recipient page view (PRD §4.10/§4.12). */
+export async function createSession(shareId: string): Promise<string | null> {
+  const db = createServiceClient();
+  const { data, error } = await db.from("sessions").insert({ share_id: shareId }).select("id").single();
+  if (error || !data) return null;
+  return data.id;
+}
+
 export async function getPublishedDeckByToken(token: string): Promise<RecipientLookup> {
   if (!isSupabaseConfigured()) return { ok: false, reason: "unconfigured" };
 

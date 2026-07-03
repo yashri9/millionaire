@@ -106,9 +106,9 @@ web/
 | 4.7 | Script editor + rehearsal | `(app)/decks/[id]/edit/{page,Workspace,LivePreview,Lightbox}.tsx` | page grid + lightbox; debounced autosave + Saved/Saving/Failed; voice picker/preview; "walk through your build" rehearsal (console + player + Q&A via `POST /api/decks/:id/rehearse-ask`); resume slide; regenerate-all confirm — not done |
 | 4.8 | Publish | `POST /api/decks/:id/publish` | verified email + all-narration gate; snapshot; create/rotate share |
 | 4.9 | Share | Share UI + `POST /api/shares/:token/revoke` | copy link; revoke; regenerate token |
-| 4.10 | Analytics | `(app)/decks/[id]/analytics/page.tsx`, `GET /api/decks/:id/analytics` | totals, per-slide drop-off, question log, poll 15s, empty state |
-| 4.11 | Account/settings | `(app)/account/page.tsx` | name/password, Google status, delete → 30-day soft-delete |
-| 4.12 | Recipient runtime | `d/[token]/page.tsx` + `Player.tsx`, `GET/POST /api/d/[token]*` | TTS + fallback, events, Q&A escalation, "link not active" page |
+| 4.10 | Analytics | `(app)/decks/[id]/analytics/page.tsx`, `GET /api/decks/:id/analytics` | done: totals, per-slide drop-off, question log, poll 15s, empty state. Aggregates across every share the deck has had, not just the active one |
+| 4.11 | Account/settings | `(app)/account/page.tsx`, `DELETE /api/account` | done: name/password (direct supabase-js, self-scoped RLS), Google status. Delete is **immediate**, not the PRD's 30-day soft-delete (that needs a pending-deletion flag + purge job — bigger than "basic settings"); relies on `on delete cascade` from decks.user_id for cleanup |
+| 4.12 | Recipient runtime | `d/[token]/page.tsx` + `Player.tsx`, `GET/POST /api/d/[token]*` | done: session created per page view, opened/slide_viewed/completed events, Q&A escalation, "link not active" page. Not done: TTS narration playback (still text-only) |
 
 ---
 
@@ -135,10 +135,11 @@ then `assertDeckOwner()` (the pattern is already wired in each handler).
 | PATCH | /api/decks/:id/script | `api/decks/[id]/script/route.ts` | **wired** (autosave into draft, or new draft post-publish) |
 | POST | /api/decks/:id/rehearse-ask | `api/decks/[id]/rehearse-ask/route.ts` | **wired** (grounded Q&A against the draft, owner-only, not persisted) |
 | POST | /api/decks/:id/publish | `api/decks/[id]/publish/route.ts` | **wired** (validate, snapshot, create/rotate share) |
-| GET | /api/decks/:id/analytics | `api/decks/[id]/analytics/route.ts` | stub (ownership wired) |
+| GET | /api/decks/:id/analytics | `api/decks/[id]/analytics/route.ts` | **wired** (opens/completion/per-slide views/question log) |
 | POST | /api/shares/:token/revoke | `api/shares/[token]/revoke/route.ts` | **wired** |
 | GET | /api/d/:token | `api/d/[token]/route.ts` | **wired** (service-role read) |
-| POST | /api/d/:token/event | `api/d/[token]/event/route.ts` | stub (active-check wired) |
+| POST | /api/d/:token/event | `api/d/[token]/event/route.ts` | **wired** (opened/slide_viewed/completed, session-scoped to the token) |
+| DELETE | /api/account | `api/account/route.ts` | **wired** (immediate delete via auth.admin, not the 30-day soft-delete) |
 | POST | /api/d/:token/ask | `api/d/[token]/ask/route.ts` | **fully wired** (LLM + escalate + rate-limit + persist) |
 
 Stubs return **501 Not Implemented** with a `todo` field — the auth/ownership

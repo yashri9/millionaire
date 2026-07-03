@@ -101,6 +101,11 @@ export default function DashboardPage() {
                   Updated {new Date(d.updated_at).toLocaleDateString()}
                 </div>
               </div>
+              {d.status !== "uploading" && (
+                <Link className="btn" href={`/decks/${d.id}/edit`}>
+                  {d.status === "parse_failed" ? "Open" : "Continue →"}
+                </Link>
+              )}
               {d.status === "published" && (
                 <Link className="btn ghost" href={`/decks/${d.id}/analytics`}>
                   Analytics

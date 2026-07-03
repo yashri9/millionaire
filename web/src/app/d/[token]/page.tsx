@@ -1,4 +1,5 @@
-import { getPublishedDeckByToken } from "@/lib/recipient";
+import { getPublishedDeckByToken, createSession } from "@/lib/recipient";
+import { createServiceClient } from "@/lib/supabase/server";
 import { Player } from "./Player";
 
 /**
@@ -37,5 +38,11 @@ export default async function RecipientPage({
     );
   }
 
-  return <Player deck={result.deck} />;
+  // One session per page view (PRD §4.10 opens/completion tracking).
+  const sessionId = await createSession(result.deck.shareId);
+  if (sessionId) {
+    await createServiceClient().from("events").insert({ session_id: sessionId, type: "opened" });
+  }
+
+  return <Player deck={result.deck} sessionId={sessionId} />;
 }
