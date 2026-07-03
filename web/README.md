@@ -15,7 +15,13 @@ the public recipient runtime at `/d/[token]`. Built per the v1 PRD.
 - **Supabase** — Postgres + Auth (email/password + Google) + Storage
 - **Pluggable LLM** — Groq (default) or Anthropic, server-side only
   (`src/lib/llm.ts`, a 1:1 TS port of `backend/llm.py`)
-- Parsing: `officeparser` (PPTX) + `pdf-parse` (PDF); Email: Resend (or dev stub)
+- Parsing: PPTX unzipped directly (`yauzl`) + `pdf-parse` (PDF text)
+- Page image rendering: `pdfjs-dist` + `@napi-rs/canvas` (pure Node, PDF pages);
+  PPTX/PPT via LibreOffice headless conversion to PDF first — **install
+  LibreOffice** to get rendered slide images/thumbnails for PPTX uploads
+  (same requirement as `backend/`'s README); without it, PPTX falls back to
+  text-only, same as the FastAPI prototype
+- Email: Resend (or dev stub)
 
 ## Run in stub / dev mode (no external services)
 
@@ -76,9 +82,14 @@ supabase/migrations/ SQL schema + RLS
 Auth (`GET /api/auth/verify-email`, `GET /api/auth/google/callback`) and the
 full deck lifecycle (`/api/decks`, `/api/decks/:id`, `/api/decks/:id/parse`,
 `/api/decks/:id/generate-script`, `/api/decks/:id/script`,
-`/api/decks/:id/publish`, `/api/shares/:token/revoke`) plus the recipient path
-(`GET /api/d/[token]`, `POST /api/d/[token]/ask`) are **wired**. Signup, login,
-logout, forgot password, and reset password are wired client-side directly
+`/api/decks/:id/rehearse-ask`, `/api/decks/:id/publish`,
+`/api/shares/:token/revoke`) plus the recipient path (`GET /api/d/[token]`,
+`POST /api/d/[token]/ask`) are **wired**. The editor at `decks/[id]/edit` is
+the full Studio experience — page grid with rendered images, voice
+picker/preview, and a "walk through your build" rehearsal mode (engagement
+console + real player + grounded Q&A) before publishing — matching
+`deck_agent_v0/frontend/studio.js`. Signup, login, logout, forgot password,
+and reset password are wired client-side directly
 against `supabase-js` (see `src/app/(auth)/*` and
 `src/components/LogoutButton.tsx`).
 

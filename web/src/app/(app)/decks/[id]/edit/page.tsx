@@ -1,18 +1,19 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-type Slide = { id: string; order_index: number; title: string; bullets: string[] };
-type Script = { id: string; is_published: boolean; narration: { slide_id: string; text: string }[] };
-type Deck = { id: string; title: string; status: "uploading" | "parse_failed" | "draft" | "published" };
-type Share = { token: string; url: string } | null;
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import { Workspace } from "./Workspace";
+import { LivePreview } from "./LivePreview";
+import { Lightbox } from "./Lightbox";
+import type { Deck, Share, Slide } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
+type Script = { id: string; is_published: boolean; narration: { slide_id: string; text: string }[] };
 
 /**
- * PRD §4.6-4.9 Script generation + editor + publish. Debounced autosave
- * (1.5s) with a Saved/Saving/Save-failed indicator; publish is gated on
- * every slide having narration (enforced again server-side either way).
+ * PRD §4.6-4.9 Studio — review pages, generate + edit narration, rehearse the
+ * exact recipient experience (voice + Q&A + live console), then publish.
+ * Mirrors deck_agent_v0/frontend/studio.js's flow, adapted to this app's
+ * Supabase-backed API instead of the FastAPI prototype's single JSON blob.
  */
 export default function EditDeckPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -21,12 +22,17 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [narration, setNarration] = useState<Record<string, string>>({});
   const [share, setShare] = useState<Share>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"workspace" | "live">("workspace");
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const [repName, setRepName] = useState("");
+  const [voiceName, setVoiceName] = useState("");
+  const [voiceRate, setVoiceRate] = useState(1);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -50,11 +56,6 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   useEffect(() => {
     load();
   }, [load]);
-
-  const allNarrated = useMemo(
-    () => slides.length > 0 && slides.every((s) => narration[s.id]?.trim()),
-    [slides, narration],
-  );
 
   async function generateScript() {
     setGenerating(true);
@@ -112,93 +113,67 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     setShare(null);
   }
 
-  async function copyLink() {
-    if (!share) return;
-    await navigator.clipboard.writeText(share.url);
-  }
-
   if (loading) return <p className="muted">Loading…</p>;
   if (!deck) return <p className="muted">{error ?? "Deck not found."}</p>;
 
-  const active = slides[activeIndex];
+  const renderWarning =
+    slides.length > 0 && slides.every((s) => !s.image_url)
+      ? "No page images available — showing extracted text only. If this was a PPTX/PPT upload, installing LibreOffice on the server enables rendered slide images."
+      : null;
+
+  if (mode === "live") {
+    return (
+      <LivePreview
+        deck={deck}
+        slides={slides}
+        narration={narration}
+        repName={repName}
+        voiceName={voiceName}
+        voiceRate={voiceRate}
+        share={share}
+        publishing={publishing}
+        onBack={() => setMode("workspace")}
+        onPublish={publish}
+        onRevoke={revoke}
+      />
+    );
+  }
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <h1 style={{ flex: 1 }}>{deck.title}</h1>
-        <button className="btn ghost" onClick={generateScript} disabled={generating || slides.length === 0}>
-          {generating ? "Generating…" : narration && Object.keys(narration).length > 0 ? "Regenerate all" : "Generate script"}
-        </button>
-        <button className="btn" onClick={publish} disabled={publishing || !allNarrated}>
-          {publishing ? "Publishing…" : deck.status === "published" ? "Republish" : "Publish"}
-        </button>
-      </div>
-
       {error && <p style={{ color: "#b3261e" }}>{error}</p>}
-
-      {share && (
-        <div className="card" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
-          <span className="muted" style={{ flex: 1, wordBreak: "break-all" }}>{share.url}</span>
-          <button className="btn ghost" onClick={copyLink}>Copy link</button>
-          <button className="btn ghost" onClick={revoke}>Revoke</button>
-        </div>
-      )}
-
-      {slides.length === 0 ? (
-        <p className="muted" style={{ marginTop: 20 }}>
-          {deck.status === "parse_failed"
-            ? "Parsing this upload failed. Go back to the dashboard to retry."
-            : "No slides yet."}
-        </p>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 20, marginTop: 20 }}>
-          <div style={{ display: "grid", gap: 8 }}>
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => setActiveIndex(i)}
-                className="card"
-                style={{
-                  textAlign: "left",
-                  cursor: "pointer",
-                  padding: 12,
-                  border: i === activeIndex ? "2px solid var(--primary)" : "1px solid var(--line)",
-                }}
-              >
-                <div className="muted" style={{ fontSize: 12 }}>Slide {s.order_index}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {s.title || "(untitled)"}
-                </div>
-                {!narration[s.id]?.trim() && <span className="todo" style={{ marginTop: 6 }}>No narration</span>}
-              </button>
-            ))}
-          </div>
-
-          {active && (
-            <div className="card">
-              <h3 style={{ marginTop: 0 }}>{active.title || `Slide ${active.order_index}`}</h3>
-              {active.bullets.length > 0 && (
-                <ul className="muted">
-                  {active.bullets.map((b, i) => (
-                    <li key={i}>{b}</li>
-                  ))}
-                </ul>
-              )}
-              <label>Narration</label>
-              <textarea
-                rows={4}
-                value={narration[active.id] ?? ""}
-                onChange={(e) => onNarrationChange(active.id, e.target.value)}
-                placeholder="What should be said aloud on this slide?"
-              />
-              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                {saveState === "saving" && "Saving…"}
-                {saveState === "saved" && "Saved"}
-                {saveState === "failed" && "Save failed — check your connection"}
-              </div>
-            </div>
-          )}
-        </div>
+      <Workspace
+        deck={deck}
+        slides={slides}
+        narration={narration}
+        onNarrationChange={onNarrationChange}
+        saveState={saveState}
+        repName={repName}
+        onRepNameChange={setRepName}
+        voiceName={voiceName}
+        onVoiceNameChange={setVoiceName}
+        voiceRate={voiceRate}
+        onVoiceRateChange={setVoiceRate}
+        generating={generating}
+        onGenerate={generateScript}
+        renderWarning={renderWarning}
+        onOpenLightbox={setLightboxIndex}
+        onEnterLive={() => setMode("live")}
+      />
+      {lightboxIndex !== null && (
+        <Lightbox
+          slides={slides}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onStep={(delta) =>
+            setLightboxIndex((i) => {
+              if (i === null) return null;
+              let n = i + delta;
+              while (n >= 0 && n < slides.length && !slides[n].image_url) n += delta;
+              return n >= 0 && n < slides.length ? n : i;
+            })
+          }
+        />
       )}
     </>
   );

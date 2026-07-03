@@ -1,8 +1,9 @@
 import { requireUser } from "@/lib/auth";
 import { assertDeckOwner } from "@/lib/ownership";
 import { handle, ApiError } from "@/lib/http";
-import { createServerClient } from "@/lib/supabase/server";
+import { createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
+import { signSlideImagePaths } from "@/lib/storage";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -31,9 +32,12 @@ export async function GET(_req: Request, { params }: Ctx) {
         .eq("status", "active")
         .maybeSingle(),
     ]);
+
+    const signedSlides = await signSlideImagePaths(createServiceClient(), slides ?? []);
+
     return Response.json({
       deck,
-      slides: slides ?? [],
+      slides: signedSlides,
       script,
       share: share ? { token: share.token, url: `${publicEnv.appUrl}/d/${share.token}` } : null,
     });

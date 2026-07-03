@@ -1,7 +1,9 @@
 import { requireUser } from "@/lib/auth";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient, createServiceClient } from "@/lib/supabase/server";
-import { parseDeck, validateUpload } from "@/lib/parse";
+import { validateUpload } from "@/lib/parse";
+import { processDeckUpload } from "@/lib/deckProcessor";
+import { uploadRenderedImages } from "@/lib/storage";
 import { serverEnv } from "@/lib/env";
 
 /** GET /api/decks — list the authenticated user's decks (PRD §6). */
@@ -21,11 +23,12 @@ export async function GET() {
 }
 
 /**
- * POST /api/decks — upload a .pptx/.pdf, store it, and parse it into slides
- * (PRD §4.5). Parsing runs inline (synchronously) rather than through a
- * background job queue — deliberate simplification for v1: officeparser/
- * pdf-parse are fast enough at the 25MB cap that a queue + poller (lib/jobs.ts)
- * would be infra without a matching need yet.
+ * POST /api/decks — upload a .pptx/.pdf, store it, and process it into
+ * slides + rendered page images (PRD §4.5, Studio parity with
+ * backend/server.py). Processing runs inline (synchronously) rather than
+ * through a background job queue — deliberate simplification for v1: the
+ * parsers/renderer are fast enough at the 25MB cap that a queue + poller
+ * (lib/jobs.ts) would be infra without a matching need yet.
  */
 export async function POST(request: Request) {
   return handle(async () => {
@@ -54,24 +57,28 @@ export async function POST(request: Request) {
     // supabase/README.md — read/write only ever happens server-side), so we
     // use the service-role client here, same as the recipient path.
     const storage = createServiceClient();
-    const storagePath = `${user.id}/${deck.id}/${file.name}`;
+    const basePath = `${user.id}/${deck.id}`;
     const { error: uploadError } = await storage.storage
       .from(serverEnv.decksBucket)
-      .upload(storagePath, bytes, { contentType: file.type || undefined, upsert: true });
+      .upload(`${basePath}/${file.name}`, bytes, { contentType: file.type || undefined, upsert: true });
     if (uploadError) {
       await supabase.from("decks").update({ status: "parse_failed" }).eq("id", deck.id);
       throw new ApiError(502, `Could not store the upload: ${uploadError.message}`);
     }
-    await supabase.from("decks").update({ source_file_url: storagePath }).eq("id", deck.id);
+    await supabase.from("decks").update({ source_file_url: `${basePath}/${file.name}` }).eq("id", deck.id);
 
     try {
-      const { slides } = await parseDeck(bytes, file.name);
+      const { slides, images, warning } = await processDeckUpload(bytes, file.name);
+      const imagePaths = await uploadRenderedImages(storage, basePath, images);
+
       const { error: slidesError } = await supabase.from("slides").insert(
         slides.map((s) => ({
           deck_id: deck.id,
           order_index: s.order_index,
           title: s.title,
           bullets: s.bullets,
+          image_path: imagePaths.get(s.order_index)?.image_path ?? null,
+          thumb_path: imagePaths.get(s.order_index)?.thumb_path ?? null,
         })),
       );
       if (slidesError) throw slidesError;
@@ -82,7 +89,7 @@ export async function POST(request: Request) {
         .eq("id", deck.id)
         .select("id, title, status, last_viewed_slide_index, created_at, updated_at")
         .single();
-      return Response.json({ deck: updated ?? deck }, { status: 201 });
+      return Response.json({ deck: updated ?? deck, warning }, { status: 201 });
     } catch (err) {
       await supabase.from("decks").update({ status: "parse_failed" }).eq("id", deck.id);
       return Response.json(

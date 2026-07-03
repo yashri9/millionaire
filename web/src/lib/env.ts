@@ -32,6 +32,9 @@ export const serverEnv = {
   postmarkToken: process.env.POSTMARK_SERVER_TOKEN ?? "",
 
   askRateLimitPerSession: Number(process.env.ASK_RATE_LIMIT_PER_SESSION ?? "20"),
+
+  /** Override if LibreOffice isn't found on PATH (mirrors backend/server.py's SOFFICE_PATH). */
+  sofficePath: process.env.SOFFICE_PATH ?? "",
 };
 
 /** True when Supabase env is present; used to run in "stub/dev mode" otherwise. */

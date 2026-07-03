@@ -21,7 +21,7 @@ export type RecipientDeck = {
   scriptVersionId: string;
   repName: string;
   title: string;
-  slides: { index: number; title: string; bullets: string[]; narration: string }[];
+  slides: { index: number; title: string; bullets: string[]; narration: string; text: string }[];
 };
 
 export type RecipientLookup =
@@ -69,6 +69,9 @@ export async function getPublishedDeckByToken(token: string): Promise<RecipientL
         title: s.title,
         bullets: s.bullets ?? [],
         narration: narrationBySlide.get(s.id) ?? "",
+        // Grounds answerQuestion() (lib/prompts.ts reads SlideInput.text) —
+        // without this, Q&A was answering from empty per-slide content.
+        text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
       })),
     },
   };

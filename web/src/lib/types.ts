@@ -40,6 +40,8 @@ export interface Slide {
   order_index: number;
   title: string;
   bullets: string[];
+  image_path: string | null;
+  thumb_path: string | null;
 }
 
 export interface ScriptVersion {
