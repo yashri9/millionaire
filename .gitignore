@@ -13,3 +13,12 @@ venv/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Next.js web app (web/)
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/.env*.local
+web/next-env.d.ts
+web/.vercel
