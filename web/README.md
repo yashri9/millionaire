@@ -73,11 +73,17 @@ supabase/migrations/ SQL schema + RLS
 
 ## Status of endpoints
 
-`GET /api/decks`, `GET /api/decks/[id]`, `GET /api/d/[token]`,
-`POST /api/d/[token]/ask`, `GET /api/auth/verify-email`, and
-`GET /api/auth/google/callback` are **wired**. Signup, login, logout, forgot
-password, and reset password are wired client-side directly against
-`supabase-js` (see `src/app/(auth)/*` and `src/components/LogoutButton.tsx`).
-The rest are scaffolded **stubs** (`501` + `todo`) with the `requireUser` +
-`assertDeckOwner` security pattern already in place. Fill them in following
-the Phase 1 order in `BUILD_PLAN.md`.
+Auth (`GET /api/auth/verify-email`, `GET /api/auth/google/callback`) and the
+full deck lifecycle (`/api/decks`, `/api/decks/:id`, `/api/decks/:id/parse`,
+`/api/decks/:id/generate-script`, `/api/decks/:id/script`,
+`/api/decks/:id/publish`, `/api/shares/:token/revoke`) plus the recipient path
+(`GET /api/d/[token]`, `POST /api/d/[token]/ask`) are **wired**. Signup, login,
+logout, forgot password, and reset password are wired client-side directly
+against `supabase-js` (see `src/app/(auth)/*` and
+`src/components/LogoutButton.tsx`).
+
+Deck parsing (`lib/parse.ts`) runs inline in the upload request rather than
+through `lib/jobs.ts`'s job-table design — a deliberate v1 simplification, see
+`BUILD_PLAN.md`. Still stubbed: `GET /api/decks/:id/analytics` and the
+recipient event-logging route, plus the account settings and analytics
+dashboard pages.
