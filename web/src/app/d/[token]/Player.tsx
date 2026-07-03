@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TalkingAvatar, useTalkingMouth } from "@/components/TalkingAvatar";
 import type { RecipientDeck } from "@/lib/recipient";
 
 /**
@@ -13,10 +14,16 @@ import type { RecipientDeck } from "@/lib/recipient";
  */
 export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: string | null }) {
   const [idx, setIdx] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const { speaking, mouthOpen, attach, stop: stopMouth } = useTalkingMouth();
   const [q, setQ] = useState("");
   const [log, setLog] = useState<{ role: "you" | "agent"; text: string; escalated?: boolean }[]>([]);
   const slide = deck.slides[idx];
   const completedLogged = useRef(false);
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  const idxRef = useRef(idx);
+  idxRef.current = idx;
 
   function logEvent(type: "slide_viewed" | "completed", payload?: Record<string, unknown>) {
     if (!sessionId) return;
@@ -35,6 +42,44 @@ export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: st
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx]);
+
+  useEffect(() => {
+    return () => window.speechSynthesis.cancel();
+  }, []);
+
+  function speak(i: number) {
+    window.speechSynthesis.cancel();
+    const text = deck.slides[i]?.narration;
+    if (!text || !("speechSynthesis" in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    attach(u, () => {
+      if (playingRef.current && idxRef.current < deck.slides.length - 1) {
+        setIdx((n) => n + 1);
+        speak(idxRef.current + 1);
+      } else {
+        setPlaying(false);
+      }
+    });
+    window.speechSynthesis.speak(u);
+  }
+
+  function togglePlay() {
+    if (playing) {
+      setPlaying(false);
+      window.speechSynthesis.cancel();
+      stopMouth();
+    } else {
+      setPlaying(true);
+      speak(idx);
+    }
+  }
+
+  function goTo(next: number) {
+    setPlaying(false);
+    window.speechSynthesis.cancel();
+    stopMouth();
+    setIdx(Math.max(0, Math.min(deck.slides.length - 1, next)));
+  }
 
   async function ask() {
     const question = q.trim();
@@ -61,19 +106,27 @@ export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: st
   return (
     <main className="wrap">
       <h1>{deck.title}</h1>
-      <div className="card" style={{ background: "#0f1720", color: "#fff", minHeight: 260 }}>
+      <div className="card" style={{ background: "#0f1720", color: "#fff", minHeight: 260, position: "relative" }}>
         <h2>{slide?.title}</h2>
         <ul>{slide?.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
         {slide?.narration && <p style={{ fontStyle: "italic", color: "#9fb0c0" }}>{slide.narration}</p>}
+        {slide?.narration && (
+          <div style={{ position: "absolute", bottom: 16, right: 16, borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,.4)" }}>
+            <TalkingAvatar speaking={speaking} mouthOpen={mouthOpen} size={56} />
+          </div>
+        )}
       </div>
       <div style={{ display: "flex", gap: 10, margin: "12px 0" }}>
-        <button className="btn ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))}>
+        <button className="btn ghost" onClick={() => goTo(idx - 1)}>
           Prev
+        </button>
+        <button className="btn" onClick={togglePlay} disabled={!slide?.narration}>
+          {playing ? "⏸ Pause" : "▶ Play narration"}
         </button>
         <span className="muted" style={{ flex: 1, textAlign: "center" }}>
           Slide {idx + 1} of {deck.slides.length}
         </span>
-        <button className="btn ghost" onClick={() => setIdx((i) => Math.min(deck.slides.length - 1, i + 1))}>
+        <button className="btn ghost" onClick={() => goTo(idx + 1)}>
           Next
         </button>
       </div>

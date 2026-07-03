@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TalkingAvatar, useTalkingMouth } from "@/components/TalkingAvatar";
 import type { Deck, InboxItem, Share, Slide, TranscriptMsg } from "./types";
 
 const SUGGESTIONS = [
@@ -36,7 +37,7 @@ export function LivePreview({
 }) {
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
+  const { speaking, mouthOpen, attach, stop: stopMouth } = useTalkingMouth();
   const [caption, setCaption] = useState("");
   const [dwell, setDwell] = useState<number[]>(() => slides.map(() => 0));
   const [questionsCount, setQuestionsCount] = useState(0);
@@ -79,19 +80,17 @@ export function LivePreview({
       const text = narration[slides[i].id] ?? "";
       setCaption(text);
       if (!text || !("speechSynthesis" in window)) {
-        setSpeaking(false);
+        stopMouth();
         return;
       }
       const u = new SpeechSynthesisUtterance(text);
       pickVoice(u);
-      setSpeaking(true);
-      u.onend = () => {
-        setSpeaking(false);
+      attach(u, () => {
         if (playingRef.current) {
           if (i < slides.length - 1) goLive(i + 1, true);
           else setPlaying(false);
         }
-      };
+      });
       window.speechSynthesis.speak(u);
     }
   }
@@ -109,7 +108,7 @@ export function LivePreview({
     if (playing) {
       setPlaying(false);
       window.speechSynthesis.cancel();
-      setSpeaking(false);
+      stopMouth();
     } else {
       setPlaying(true);
       const start = idx >= slides.length - 1 ? 0 : idx;
@@ -247,6 +246,9 @@ export function LivePreview({
             <div className="speaking-dot">
               <span className={`pulse ${speaking ? "live" : ""}`} />
               <span>{speaking ? "speaking…" : "idle"}</span>
+            </div>
+            <div className="avatar-pip">
+              <TalkingAvatar speaking={speaking} mouthOpen={mouthOpen} />
             </div>
             <div className="stage-inner">
               {slide?.image_url ? (
