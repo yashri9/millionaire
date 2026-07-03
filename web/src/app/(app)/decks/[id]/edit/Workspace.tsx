@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * Workspace.tsx — the "review pages / edit narration" screen, the first
+ * thing shown after page.tsx (the parent) loads a deck. All state here is
+ * owned by the parent (page.tsx) and passed down as props/callbacks — this
+ * component is pure UI, no fetch calls of its own except the browser-local
+ * `speechSynthesis.getVoices()` list for the voice picker.
+ *
+ * Layout: a header bar (title, page count, rep name, duration picker,
+ * generate button) → the page grid (thumbnails + narration textareas,
+ * clicking a thumbnail opens Lightbox.tsx via onOpenLightbox) → a sticky
+ * action bar (voice controls + "Walk through your build" which switches the
+ * parent to LivePreview.tsx).
+ */
 import { useEffect, useState } from "react";
 import type { Deck, Slide } from "./types";
 

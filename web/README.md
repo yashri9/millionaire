@@ -5,9 +5,11 @@ the public recipient runtime at `/d/[token]`. Built per the v1 PRD.
 
 > This is **separate from** and does **not** touch the FastAPI prototype in
 > `../backend` + `../frontend`, which stays as the reference implementation.
-> See [`BUILD_PLAN.md`](./BUILD_PLAN.md) for the full plan and the coexistence /
-> migration path. DB schema + how to apply live in
-> [`supabase/README.md`](./supabase/README.md).
+>
+> **New to this codebase? Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) first** —
+> it's the file map + "where do I change X" index. `BUILD_PLAN.md` is the
+> full spec and feature-by-feature build status; `supabase/README.md` is the
+> DB schema and how to apply migrations.
 
 ## Stack
 

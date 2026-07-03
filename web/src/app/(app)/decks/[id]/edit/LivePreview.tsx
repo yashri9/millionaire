@@ -1,5 +1,38 @@
 "use client";
 
+/**
+ * LivePreview.tsx — the "walk through your build" rehearsal screen shown
+ * after Workspace.tsx's "Walk through your build →" button.
+ *
+ * This is the biggest/busiest component in the app: it's one screen with
+ * several independent jobs bundled together deliberately (splitting each
+ * into its own file would mean prop-drilling most of this component's state
+ * back out anyway, since they all read/write the same idx/playing/speaking
+ * state). If you're editing this file, the jobs are, in the order they
+ * appear below:
+ *
+ *   1. Playback engine   — goLive()/speakLive-equivalent (via TalkingAvatar's
+ *                          useTalkingMouth hook) + the dwell-time timer.
+ *                          This is the part also duplicated (simplified) in
+ *                          src/app/d/[token]/Player.tsx for the real
+ *                          recipient view — if you change narration-speaking
+ *                          behavior, check whether Player.tsx needs the same
+ *                          fix.
+ *   2. Nav controls      — prev/next/play-pause, driving the engine above.
+ *   3. Q&A               — askLive() calls POST /api/decks/:id/rehearse-ask
+ *                          (owner-only, not persisted — contrast with the
+ *                          real recipient path in
+ *                          src/app/api/d/[token]/ask/route.ts, which IS
+ *                          persisted/rate-limited).
+ *   4. Render            — two columns: `.console` (engagement metrics,
+ *                          simulated locally, not real analytics) and
+ *                          `.prospect` (the actual player + Q&A UI a real
+ *                          recipient would see).
+ *
+ * State is intentionally flat (not split into custom hooks) — this
+ * component doesn't get reused anywhere else, so extracting hooks would add
+ * indirection without adding reusability.
+ */
 import { useEffect, useRef, useState } from "react";
 import { TalkingAvatar, useTalkingMouth } from "@/components/TalkingAvatar";
 import type { Deck, InboxItem, Share, Slide, TranscriptMsg } from "./types";
@@ -56,6 +89,8 @@ export function LivePreview({
 
   const slide = slides[idx];
   const rep = repName.trim() || "the rep";
+
+  // ---- 1. Playback engine (goLive/pickVoice/togglePlay) ----------------
 
   function pickVoice(u: SpeechSynthesisUtterance) {
     const voices = window.speechSynthesis.getVoices();
@@ -116,6 +151,8 @@ export function LivePreview({
     }
   }
 
+  // ---- 2. Nav controls ---------------------------------------------------
+
   function prev() {
     setPlaying(false);
     goLive(idx - 1, false);
@@ -124,6 +161,8 @@ export function LivePreview({
     setPlaying(false);
     goLive(idx + 1, false);
   }
+
+  // ---- 3. Q&A (askLive + the escalation "signal beam" animation) --------
 
   function fireBeam() {
     const from = inputRowRef.current?.getBoundingClientRect();
@@ -176,6 +215,9 @@ export function LivePreview({
 
   const watched = idx + 1;
   const completion = Math.round((watched / slides.length) * 100);
+
+  // ---- 4. Render: `.console` (simulated metrics, left) + `.prospect` -----
+  // ----             (the real player + Q&A a recipient sees, right) ------
 
   return (
     <div className="live">

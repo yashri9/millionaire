@@ -1,3 +1,5 @@
+/** Shared types for the Studio flow (page.tsx + Workspace/LivePreview/Lightbox). */
+
 export type Slide = {
   id: string;
   order_index: number;

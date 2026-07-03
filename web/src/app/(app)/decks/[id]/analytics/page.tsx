@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * PRD §4.10 Analytics. Polls GET /api/decks/:id/analytics every 15s. The
+ * numbers behind this page only exist because src/app/d/[token]/page.tsx
+ * creates a session and Player.tsx logs events on every real recipient
+ * visit — if that logging ever stops firing, this page will just show zeros
+ * (see lib/recipient.ts's createSession + the POST /api/d/[token]/event
+ * route for where the data actually comes from).
+ */
 import { use, useEffect, useState } from "react";
 
 type Analytics = {

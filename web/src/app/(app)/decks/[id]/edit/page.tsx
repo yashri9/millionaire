@@ -14,6 +14,12 @@ type Script = { id: string; is_published: boolean; narration: { slide_id: string
  * exact recipient experience (voice + Q&A + live console), then publish.
  * Mirrors deck_agent_v0/frontend/studio.js's flow, adapted to this app's
  * Supabase-backed API instead of the FastAPI prototype's single JSON blob.
+ *
+ * This file is the state owner for the whole Studio flow — Workspace.tsx and
+ * LivePreview.tsx are presentational-plus-local-UI-state only, everything
+ * that needs to persist across the two screens (slides, narration, share,
+ * save status) lives here and is passed down as props. `mode` below is what
+ * switches between the two screens (no routing — it's one page, two views).
  */
 export default function EditDeckPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

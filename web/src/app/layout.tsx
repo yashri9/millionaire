@@ -1,3 +1,4 @@
+/** Next.js root layout — every route in the app renders inside this. globals.css lives here. */
 import type { Metadata } from "next";
 import "./globals.css";
 

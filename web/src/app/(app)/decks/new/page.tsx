@@ -2,6 +2,9 @@
 
 import { useRef, useState } from "react";
 
+// Mirrors lib/parse.ts's validateUpload — this is just a fast client-side
+// pre-check to avoid an upload round-trip; the server re-validates for real,
+// so if you change one, change the other.
 const MAX_BYTES = 25 * 1024 * 1024;
 const ACCEPT = [".pptx", ".pdf"];
 

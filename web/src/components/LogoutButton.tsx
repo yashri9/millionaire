@@ -1,5 +1,6 @@
 "use client";
 
+/** Used in (app)/layout.tsx's nav — the only sign-out entry point in the app. */
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 

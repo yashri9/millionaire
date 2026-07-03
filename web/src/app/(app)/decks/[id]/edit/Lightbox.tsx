@@ -1,5 +1,6 @@
 "use client";
 
+/** Click-to-enlarge overlay for a page thumbnail in Workspace.tsx's grid. */
 import { useEffect } from "react";
 import type { Slide } from "./types";
 

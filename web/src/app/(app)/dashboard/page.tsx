@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * PRD §4.4 Dashboard — the sender's deck list (landing page after login).
+ * Fetches GET /api/decks itself (not passed in as props from a server
+ * component) since it needs to re-fetch after delete/retry actions below.
+ */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 

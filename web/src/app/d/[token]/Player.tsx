@@ -11,6 +11,12 @@ import type { RecipientDeck } from "@/lib/recipient";
  *
  * Event logging (PRD §4.10): slide_viewed on navigation, completed on
  * reaching the last slide — best-effort, never blocks the UI on failure.
+ *
+ * This is the simplified sibling of the sender's rehearsal playback in
+ * decks/[id]/edit/LivePreview.tsx (same useTalkingMouth-driven avatar/speech
+ * pattern, no engagement console since there's no one to show it to here).
+ * If you change how narration is spoken, check whether that file needs the
+ * same change.
  */
 export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: string | null }) {
   const [idx, setIdx] = useState(0);
