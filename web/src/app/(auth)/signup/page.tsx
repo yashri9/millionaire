@@ -23,7 +23,11 @@ export default function SignupPage() {
       return;
     }
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+    });
     if (error) {
       setMsg("Try logging in, or use ‘forgot password’.");
       return;

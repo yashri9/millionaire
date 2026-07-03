@@ -32,7 +32,11 @@ export default function CheckEmailPage() {
     }
     setSending(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email });
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+    });
     setSending(false);
     if (error) {
       setMsg("Couldn't resend right now. Try again in a minute.");
