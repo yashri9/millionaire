@@ -131,7 +131,7 @@ then `assertDeckOwner()` (the pattern is already wired in each handler).
 | PATCH | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (title / last_viewed_slide_index) |
 | DELETE | /api/decks/:id | `api/decks/[id]/route.ts` | **wired** (soft-delete) |
 | POST | /api/decks/:id/parse | `api/decks/[id]/parse/route.ts` | **wired** (re-parse retry after parse_failed) |
-| POST | /api/decks/:id/generate-script | `api/decks/[id]/generate-script/route.ts` | **wired** (generateNarration -> new draft script_versions) |
+| POST | /api/decks/:id/generate-script | `api/decks/[id]/generate-script/route.ts` | **wired** (generateNarration -> new draft script_versions; accepts `duration_minutes` 1/2/5, spread evenly across slides) |
 | PATCH | /api/decks/:id/script | `api/decks/[id]/script/route.ts` | **wired** (autosave into draft, or new draft post-publish) |
 | POST | /api/decks/:id/rehearse-ask | `api/decks/[id]/rehearse-ask/route.ts` | **wired** (grounded Q&A against the draft, owner-only, not persisted) |
 | POST | /api/decks/:id/publish | `api/decks/[id]/publish/route.ts` | **wired** (validate, snapshot, create/rotate share) |

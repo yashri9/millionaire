@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { assertDeckOwner } from "@/lib/ownership";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient } from "@/lib/supabase/server";
-import { generateNarration } from "@/lib/prompts";
+import { generateNarration, NARRATION_DURATIONS, type NarrationDurationMinutes } from "@/lib/prompts";
 import { LLMError } from "@/lib/llm";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -12,12 +12,23 @@ type Ctx = { params: Promise<{ id: string }> };
  * create a draft script_versions row (PRD §4.6). Explicit user action only;
  * always creates a fresh draft row rather than mutating in place, so a bad
  * regenerate never destroys the slides that fed it.
+ *
+ * Body: { duration_minutes?: 1 | 2 | 5 } — target total spoken length for the
+ * whole deck; the per-slide word budget is spread evenly across however many
+ * slides there are (lib/prompts.ts wordsPerSlide). Defaults to 1.
  */
-export async function POST(_req: Request, { params }: Ctx) {
+export async function POST(req: Request, { params }: Ctx) {
   return handle(async () => {
     const { id } = await params;
     const user = await requireUser();
     await assertDeckOwner(id, user.id);
+
+    const body = (await req.json().catch(() => null)) as { duration_minutes?: number } | null;
+    const durationMinutes: NarrationDurationMinutes = NARRATION_DURATIONS.includes(
+      body?.duration_minutes as NarrationDurationMinutes,
+    )
+      ? (body!.duration_minutes as NarrationDurationMinutes)
+      : 1;
 
     const supabase = await createServerClient();
     const { data: slides, error: slidesError } = await supabase
@@ -36,6 +47,7 @@ export async function POST(_req: Request, { params }: Ctx) {
           title: s.title,
           text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
         })),
+        durationMinutes,
       );
     } catch (err) {
       if (err instanceof LLMError) throw new ApiError(502, err.message);

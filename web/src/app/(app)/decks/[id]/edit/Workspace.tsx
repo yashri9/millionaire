@@ -33,12 +33,13 @@ export function Workspace({
   voiceRate: number;
   onVoiceRateChange: (v: number) => void;
   generating: boolean;
-  onGenerate: () => void;
+  onGenerate: (durationMinutes: 1 | 2 | 5) => void;
   renderWarning: string | null;
   onOpenLightbox: (index: number) => void;
   onEnterLive: () => void;
 }) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [durationMinutes, setDurationMinutes] = useState<1 | 2 | 5>(1);
   const narrationReady = slides.length > 0 && slides.every((s) => narration[s.id]?.trim());
   const anyNarration = Object.values(narration).some((t) => t.trim());
 
@@ -79,7 +80,19 @@ export function Workspace({
             placeholder="e.g. Priya"
           />
         </label>
-        <button className="btn ghost" onClick={onGenerate} disabled={generating || slides.length === 0}>
+        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, margin: 0 }}>
+          <span className="muted" style={{ fontSize: 12 }}>Target length</span>
+          <select
+            style={{ width: "auto" }}
+            value={durationMinutes}
+            onChange={(e) => setDurationMinutes(Number(e.target.value) as 1 | 2 | 5)}
+          >
+            <option value={1}>~1 min</option>
+            <option value={2}>~2 min</option>
+            <option value={5}>~5 min</option>
+          </select>
+        </label>
+        <button className="btn ghost" onClick={() => onGenerate(durationMinutes)} disabled={generating || slides.length === 0}>
           {generating ? "Generating…" : anyNarration ? "Regenerate narration" : "Generate narration →"}
         </button>
       </div>

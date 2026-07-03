@@ -57,10 +57,14 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     load();
   }, [load]);
 
-  async function generateScript() {
+  async function generateScript(durationMinutes: 1 | 2 | 5) {
     setGenerating(true);
     setError(null);
-    const res = await fetch(`/api/decks/${id}/generate-script`, { method: "POST" });
+    const res = await fetch(`/api/decks/${id}/generate-script`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ duration_minutes: durationMinutes }),
+    });
     const data = await res.json().catch(() => null);
     setGenerating(false);
     if (!res.ok) {
