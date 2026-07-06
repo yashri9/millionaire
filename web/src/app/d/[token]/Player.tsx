@@ -30,6 +30,19 @@ export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: st
   playingRef.current = playing;
   const idxRef = useRef(idx);
   idxRef.current = idx;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else stageRef.current?.requestFullscreen();
+  }
 
   function logEvent(type: "slide_viewed" | "completed", payload?: Record<string, unknown>) {
     if (!sessionId) return;
@@ -112,7 +125,15 @@ export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: st
   return (
     <main className="wrap">
       <h1>{deck.title}</h1>
-      <div className="card" style={{ background: "#0f1720", color: "#fff", minHeight: 260, position: "relative" }}>
+      <div ref={stageRef} className="card" style={{ background: "#0f1720", color: "#fff", minHeight: 260, position: "relative" }}>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={toggleFullscreen}
+          style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", fontSize: 12, background: "rgba(255,255,255,.1)", color: "#fff", borderColor: "rgba(255,255,255,.3)" }}
+        >
+          {fullscreen ? "⤦ Exit full screen" : "⛶ Full screen"}
+        </button>
         <h2>{slide?.title}</h2>
         <ul>{slide?.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
         {slide?.narration && <p style={{ fontStyle: "italic", color: "#9fb0c0" }}>{slide.narration}</p>}

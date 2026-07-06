@@ -81,6 +81,8 @@ export function LivePreview({
   const inputRowRef = useRef<HTMLDivElement>(null);
   const inboxRef = useRef<HTMLDivElement>(null);
   const beamRef = useRef<HTMLDivElement>(null);
+  const playerCardRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const dwellTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const dwellStart = useRef<number>(Date.now());
@@ -138,6 +140,20 @@ export function LivePreview({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      playerCardRef.current?.requestFullscreen();
+    }
+  }
 
   function togglePlay() {
     if (playing) {
@@ -275,7 +291,7 @@ export function LivePreview({
       </div>
 
       <div className="prospect">
-        <div className="player-card">
+        <div className="player-card" ref={playerCardRef}>
           <div className="player-head">
             <span className="who">Preview · how a recipient experiences it</span>
             <div className="progress-dots">
@@ -283,6 +299,9 @@ export function LivePreview({
                 <span key={i} className={i === idx ? "active" : i < idx ? "done" : ""} />
               ))}
             </div>
+            <button className="btn ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={toggleFullscreen} type="button">
+              {fullscreen ? "⤦ Exit full screen" : "⛶ Full screen"}
+            </button>
           </div>
           <div className="stage-view">
             <div className="speaking-dot">
