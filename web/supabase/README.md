@@ -10,6 +10,7 @@ migrations/
   0003_grants.sql # GRANT base table privileges to `authenticated` (RLS alone isn't enough — see file)
   0004_page_images.sql # adds slides.image_path / slides.thumb_path (rendered page images)
   0005_avatar_video.sql # adds slides.avatar_video_path (real AI avatar video, D-ID — not wired into UI yet)
+  0006_narration_prompt.sql # adds profiles.narration_prompt (user-editable override, see Account settings)
 ```
 
 ## Apply the migrations
@@ -57,6 +58,7 @@ npx supabase db push
    substitute for the base GRANT.
 5. Paste the contents of `0004_page_images.sql`, run it.
 6. Paste the contents of `0005_avatar_video.sql`, run it.
+7. Paste the contents of `0006_narration_prompt.sql`, run it.
 
 ## What to configure in the dashboard (not in SQL)
 

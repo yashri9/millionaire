@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
     try {
       const { slides, images, warning } = await processDeckUpload(bytes, file.name);
-      const imagePaths = await uploadRenderedImages(storage, basePath, images);
+      const { paths: imagePaths, failedOrderIndexes } = await uploadRenderedImages(storage, basePath, images);
 
       const { error: slidesError } = await supabase.from("slides").insert(
         slides.map((s) => ({
@@ -89,7 +89,14 @@ export async function POST(request: Request) {
         .eq("id", deck.id)
         .select("id, title, status, last_viewed_slide_index, created_at, updated_at")
         .single();
-      return Response.json({ deck: updated ?? deck, warning }, { status: 201 });
+      const imageWarning =
+        failedOrderIndexes.length > 0
+          ? `Slide image upload failed for slide(s) ${failedOrderIndexes.join(", ")} after retrying — use "Re-parse" to try again.`
+          : undefined;
+      return Response.json(
+        { deck: updated ?? deck, warning: warning ?? imageWarning },
+        { status: 201 },
+      );
     } catch (err) {
       await supabase.from("decks").update({ status: "parse_failed" }).eq("id", deck.id);
       return Response.json(

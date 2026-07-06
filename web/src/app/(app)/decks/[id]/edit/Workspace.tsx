@@ -47,6 +47,8 @@ export function Workspace({
   generating,
   onGenerate,
   renderWarning,
+  onReparse,
+  reparsing,
   onOpenLightbox,
   onEnterLive,
 }: {
@@ -64,6 +66,8 @@ export function Workspace({
   generating: boolean;
   onGenerate: (durationMinutes: 1 | 2 | 5) => void;
   renderWarning: string | null;
+  onReparse: () => void;
+  reparsing: boolean;
   onOpenLightbox: (index: number) => void;
   onEnterLive: () => void;
 }) {
@@ -132,7 +136,29 @@ export function Workspace({
         </button>
       </div>
 
-      {renderWarning && <div className="warn" style={{ color: "var(--escalate)", background: "var(--escalate-soft)", border: "1px solid #ebc694", borderRadius: 8, padding: "9px 12px", fontSize: "12.5px", marginBottom: 16 }}>{renderWarning}</div>}
+      {renderWarning && (
+        <div
+          className="warn"
+          style={{
+            color: "var(--escalate)",
+            background: "var(--escalate-soft)",
+            border: "1px solid #ebc694",
+            borderRadius: 8,
+            padding: "9px 12px",
+            fontSize: "12.5px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <span>{renderWarning}</span>
+          <button className="btn ghost" onClick={onReparse} disabled={reparsing} style={{ flexShrink: 0 }}>
+            {reparsing ? "Re-parsing…" : "Re-parse"}
+          </button>
+        </div>
+      )}
 
       {narrationReady && (
         <p className="muted" style={{ marginTop: 0, marginBottom: 16 }}>

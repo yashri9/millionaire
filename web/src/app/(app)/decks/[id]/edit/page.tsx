@@ -32,6 +32,7 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [reparsing, setReparsing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [mode, setMode] = useState<"workspace" | "live">("workspace");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -82,6 +83,19 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     setNarration(byId);
   }
 
+  async function reparse() {
+    setReparsing(true);
+    setError(null);
+    const res = await fetch(`/api/decks/${id}/parse`, { method: "POST" });
+    const data = await res.json().catch(() => null);
+    setReparsing(false);
+    if (!res.ok) {
+      setError(data?.error ?? "Re-parsing failed. Try again.");
+      return;
+    }
+    await load();
+  }
+
   function scheduleSave(next: Record<string, string>) {
     setSaveState("saving");
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -126,10 +140,13 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   if (loading) return <p className="muted">Loading…</p>;
   if (!deck) return <p className="muted">{error ?? "Deck not found."}</p>;
 
+  const slidesMissingImages = slides.filter((s) => !s.image_url);
   const renderWarning =
-    slides.length > 0 && slides.every((s) => !s.image_url)
-      ? "No page images available — showing extracted text only. If this was a PPTX/PPT upload, installing LibreOffice on the server enables rendered slide images."
-      : null;
+    slidesMissingImages.length === 0
+      ? null
+      : slidesMissingImages.length === slides.length
+        ? "No page images available — showing extracted text only. If this was a PPTX/PPT upload, installing LibreOffice on the server enables rendered slide images."
+        : `Page image missing for slide(s) ${slidesMissingImages.map((s) => s.order_index).join(", ")} — this can happen from a transient upload hiccup. Click "Re-parse" to retry rendering just this deck.`;
 
   if (mode === "live") {
     return (
@@ -167,6 +184,8 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
         generating={generating}
         onGenerate={generateScript}
         renderWarning={renderWarning}
+        onReparse={reparse}
+        reparsing={reparsing}
         onOpenLightbox={setLightboxIndex}
         onEnterLive={() => setMode("live")}
       />

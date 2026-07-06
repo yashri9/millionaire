@@ -96,7 +96,14 @@ supabase/migrations/   SQL schema + RLS + grants, applied in filename order
   simple for two providers; if you're adding a third, that's the point
   where an interface starts paying for itself.
 - **Change the narration prompt/style/length logic** → `lib/prompts.ts`'s
-  `generateNarration` + `wordsPerSlide()`.
+  `generateNarration` + `wordsPerSlide()`. The editable half of the system
+  prompt (`DEFAULT_NARRATION_INSTRUCTIONS`, with `{budget}`/`{slideCount}`
+  placeholders) lives in `lib/narrationPromptDefaults.ts` — split out because
+  `prompts.ts` is `server-only` and the Account page needs to show/edit this
+  text client-side. A per-user override lives in `profiles.narration_prompt`
+  and is editable from `(app)/account/page.tsx`, no code change needed for a
+  wording/tone tweak; the JSON output-format instruction is always appended
+  in code (not editable) so a bad custom prompt can't break parsing.
 - **Change the Q&A grounding/escalation behavior** → `lib/prompts.ts`'s
   `answerQuestion`. Note there are TWO callers: the real recipient path
   (`api/d/[token]/ask`, persisted + rate-limited) and the sender's rehearsal

@@ -35,7 +35,7 @@ export async function POST(_req: Request, { params }: Ctx) {
 
     try {
       const { slides, images, warning } = await processDeckUpload(bytes, filename);
-      const imagePaths = await uploadRenderedImages(storage, basePath, images);
+      const { paths: imagePaths, failedOrderIndexes } = await uploadRenderedImages(storage, basePath, images);
 
       await supabase.from("slides").delete().eq("deck_id", id);
       const { error: slidesError } = await supabase.from("slides").insert(
@@ -56,7 +56,11 @@ export async function POST(_req: Request, { params }: Ctx) {
         .eq("id", id)
         .select("*")
         .single();
-      return Response.json({ deck: updated, warning });
+      const imageWarning =
+        failedOrderIndexes.length > 0
+          ? `Slide image upload failed for slide(s) ${failedOrderIndexes.join(", ")} after retrying — try "Re-parse" again.`
+          : undefined;
+      return Response.json({ deck: updated, warning: warning ?? imageWarning });
     } catch (err) {
       await supabase.from("decks").update({ status: "parse_failed" }).eq("id", id);
       throw new ApiError(422, `Parsing failed: ${(err as Error).message}`);

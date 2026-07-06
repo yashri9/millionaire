@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
+import { DEFAULT_NARRATION_INSTRUCTIONS } from "@/lib/narrationPromptDefaults";
 
 /**
  * PRD §4.11 Account / settings. Change name/password, Google link status,
@@ -24,6 +25,10 @@ export default function AccountPage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [narrationPrompt, setNarrationPrompt] = useState(DEFAULT_NARRATION_INSTRUCTIONS);
+  const [promptMsg, setPromptMsg] = useState<string | null>(null);
+  const [savingPrompt, setSavingPrompt] = useState(false);
+
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setLoading(false);
@@ -37,8 +42,13 @@ export default function AccountPage() {
       }
       setEmail(user.email ?? "");
       setGoogleLinked((user.identities ?? []).some((i) => i.provider === "google"));
-      const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, narration_prompt")
+        .eq("id", user.id)
+        .single();
       setName(profile?.name ?? "");
+      setNarrationPrompt(profile?.narration_prompt?.trim() || DEFAULT_NARRATION_INSTRUCTIONS);
       setLoading(false);
     });
   }, []);
@@ -66,6 +76,30 @@ export default function AccountPage() {
     setSavingPassword(false);
     setPassword("");
     setPasswordMsg(error ? "Couldn't update your password." : "Password updated.");
+  }
+
+  async function saveNarrationPrompt(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingPrompt(true);
+    setPromptMsg(null);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    // An empty/default-matching value is stored as null so future prompt
+    // tweaks to the built-in default apply automatically instead of being
+    // frozen at whatever text happened to be in the box when this was saved.
+    const trimmed = narrationPrompt.trim();
+    const toStore = trimmed && trimmed !== DEFAULT_NARRATION_INSTRUCTIONS ? trimmed : null;
+    const { error } = await supabase.from("profiles").update({ narration_prompt: toStore }).eq("id", user.id);
+    setSavingPrompt(false);
+    setPromptMsg(error ? "Couldn't save your prompt." : "Saved. New scripts will use this from now on.");
+  }
+
+  function resetNarrationPrompt() {
+    setNarrationPrompt(DEFAULT_NARRATION_INSTRUCTIONS);
+    setPromptMsg(null);
   }
 
   async function deleteAccount() {
@@ -120,6 +154,36 @@ export default function AccountPage() {
             {savingPassword ? "Updating…" : "Update password"}
           </button>
           {passwordMsg && <p className="muted" style={{ marginTop: 8 }}>{passwordMsg}</p>}
+        </form>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Narration prompt</h3>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+          This is the exact instruction sent to the model on every &quot;Generate narration&quot; click.
+          It doesn&apos;t see the deck&apos;s images — only each slide&apos;s extracted title/bullets text,
+          all slides sent together in one request so it can write a coherent script across the whole
+          deck. Use <code>{"{budget}"}</code> for the target words-per-slide (set by the 1/2/5 min
+          picker) and <code>{"{slideCount}"}</code> for the total slide count — both are filled in
+          automatically. The JSON output format instruction is fixed and always added after this, so
+          editing this text can&apos;t break script generation.
+        </p>
+        <form onSubmit={saveNarrationPrompt}>
+          <textarea
+            value={narrationPrompt}
+            onChange={(e) => setNarrationPrompt(e.target.value)}
+            rows={12}
+            style={{ width: "100%", fontFamily: "monospace", fontSize: 12.5, resize: "vertical" }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button className="btn" type="submit" disabled={savingPrompt}>
+              {savingPrompt ? "Saving…" : "Save prompt"}
+            </button>
+            <button className="btn ghost" type="button" onClick={resetNarrationPrompt} disabled={savingPrompt}>
+              Reset to default
+            </button>
+          </div>
+          {promptMsg && <p className="muted" style={{ marginTop: 8 }}>{promptMsg}</p>}
         </form>
       </div>
 

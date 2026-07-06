@@ -31,11 +31,10 @@ export async function POST(req: Request, { params }: Ctx) {
       : 1;
 
     const supabase = await createServerClient();
-    const { data: slides, error: slidesError } = await supabase
-      .from("slides")
-      .select("id, order_index, title, bullets")
-      .eq("deck_id", id)
-      .order("order_index");
+    const [{ data: slides, error: slidesError }, { data: profile }] = await Promise.all([
+      supabase.from("slides").select("id, order_index, title, bullets").eq("deck_id", id).order("order_index"),
+      supabase.from("profiles").select("narration_prompt").eq("id", user.id).single(),
+    ]);
     if (slidesError) throw slidesError;
     if (!slides || slides.length === 0) throw new ApiError(409, "This deck has no slides to write narration for");
 
@@ -48,6 +47,7 @@ export async function POST(req: Request, { params }: Ctx) {
           text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
         })),
         durationMinutes,
+        profile?.narration_prompt,
       );
     } catch (err) {
       if (err instanceof LLMError) throw new ApiError(502, err.message);

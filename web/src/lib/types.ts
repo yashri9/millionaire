@@ -18,6 +18,7 @@ export interface Profile {
   id: string; // = auth.users.id
   name: string | null;
   google_id: string | null;
+  narration_prompt: string | null; // custom override for lib/prompts.ts's DEFAULT_NARRATION_INSTRUCTIONS
   created_at: string;
   updated_at: string;
 }
