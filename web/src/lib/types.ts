@@ -42,6 +42,7 @@ export interface Slide {
   bullets: string[];
   image_path: string | null;
   thumb_path: string | null;
+  avatar_video_path: string | null; // lib/avatarVideo.ts (D-ID) — not wired into any UI yet
 }
 
 export interface ScriptVersion {

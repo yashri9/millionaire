@@ -9,6 +9,7 @@ migrations/
   0002_rls.sql    # Row Level Security: owner-only access; recipient path is service-role only
   0003_grants.sql # GRANT base table privileges to `authenticated` (RLS alone isn't enough — see file)
   0004_page_images.sql # adds slides.image_path / slides.thumb_path (rendered page images)
+  0005_avatar_video.sql # adds slides.avatar_video_path (real AI avatar video, D-ID — not wired into UI yet)
 ```
 
 ## Apply the migrations
@@ -28,7 +29,7 @@ If `db push` times out on the direct `db.*.supabase.co` host (IPv6/network),
 run `supabase login` + `link` first (uses the Supabase API), or use Option B.
 
 The CLI applies files in `supabase/migrations/` in filename order
-(`0001_` then `0002_` then `0003_` then `0004_`).
+(`0001_` through `0005_`).
 
 ### Troubleshooting: "type already exists" / partial migration
 
@@ -55,6 +56,7 @@ npx supabase db push
    even though RLS policies are in place — RLS restricts rows, it doesn't
    substitute for the base GRANT.
 5. Paste the contents of `0004_page_images.sql`, run it.
+6. Paste the contents of `0005_avatar_video.sql`, run it.
 
 ## What to configure in the dashboard (not in SQL)
 

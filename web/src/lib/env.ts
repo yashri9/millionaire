@@ -35,6 +35,15 @@ export const serverEnv = {
 
   /** Override if LibreOffice isn't found on PATH (mirrors backend/server.py's SOFFICE_PATH). */
   sofficePath: process.env.SOFFICE_PATH ?? "",
+
+  /**
+   * Real AI avatar video (D-ID), planned as a paid-plan feature — see
+   * lib/avatarVideo.ts. Unset by default; the feature throws a clear
+   * "not configured" error rather than silently no-op'ing if called without
+   * these, same pattern as the LLM/email providers above.
+   */
+  didApiKey: process.env.DID_API_KEY ?? "",
+  didAvatarImageUrl: process.env.DID_AVATAR_IMAGE_URL ?? "",
 };
 
 /** True when Supabase env is present; used to run in "stub/dev mode" otherwise. */

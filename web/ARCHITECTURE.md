@@ -134,11 +134,14 @@ supabase/migrations/   SQL schema + RLS + grants, applied in filename order
 - **Account deletion is immediate**, not the originally-specced 30-day
   soft-delete — that needs a pending-deletion flag + purge job, a bigger
   feature than "basic settings." See `api/account/route.ts`.
-- **The talking avatar's lip movement is approximate**, driven by the Web
-  Speech API's `boundary` events, not real phoneme timing — true lip-sync
-  needs a paid cloud TTS (Azure/Polly) or an AI avatar-video API (D-ID/
-  HeyGen), both bigger commitments than a free client-side approximation.
-  See `components/TalkingAvatar.tsx`.
+- **The default talking avatar's lip movement is approximate**, driven by
+  the Web Speech API's `boundary` events, not real phoneme timing — see
+  `components/TalkingAvatar.tsx`. A real AI avatar video integration (D-ID)
+  exists at `lib/avatarVideo.ts` + `POST /api/decks/:id/generate-avatar-video`
+  but is **not linked from any UI** — two things are still undecided first:
+  where the avatar's source photo comes from (one env-var default today, not
+  a per-user picker) and the real plan/billing gate (no subscription system
+  exists in this app yet, so "paid feature" isn't enforceable server-side).
 - **PPTX slide images need LibreOffice installed** on whatever machine runs
   the server (`lib/render.ts`'s `convertToPdf`). Without it, PPTX falls back
   to text-only slides — same fallback the original FastAPI prototype uses.
