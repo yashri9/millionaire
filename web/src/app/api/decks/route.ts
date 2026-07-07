@@ -3,10 +3,15 @@ import { handle, ApiError } from "@/lib/http";
 import { createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { validateUpload } from "@/lib/parse";
 import { processDeckUpload } from "@/lib/deckProcessor";
-import { uploadRenderedImages } from "@/lib/storage";
+import { uploadRenderedImages, signSlideImagePaths } from "@/lib/storage";
 import { serverEnv } from "@/lib/env";
 
-/** GET /api/decks — list the authenticated user's decks (PRD §6). */
+/**
+ * GET /api/decks — list the authenticated user's decks (PRD §6), each with
+ * its first slide's thumbnail for the dashboard's card grid. order_index is
+ * 1-based PER DECK (see lib/render.ts), so filtering order_index=1 across
+ * every deck_id in one query gets exactly the first slide of each deck.
+ */
 export async function GET() {
   return handle(async () => {
     const user = await requireUser();
@@ -18,7 +23,26 @@ export async function GET() {
       .is("deleted_at", null)
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return Response.json({ decks: data ?? [] });
+
+    const decks = data ?? [];
+    const deckIds = decks.map((d) => d.id);
+    let thumbByDeck = new Map<string, string | null>();
+    if (deckIds.length > 0) {
+      const { data: firstSlides } = await supabase
+        .from("slides")
+        .select("deck_id, thumb_path")
+        .in("deck_id", deckIds)
+        .eq("order_index", 1);
+      const signed = await signSlideImagePaths(
+        createServiceClient(),
+        (firstSlides ?? []).map((s) => ({ ...s, image_path: null as string | null })),
+      );
+      thumbByDeck = new Map(signed.map((s) => [s.deck_id as string, s.thumb_url]));
+    }
+
+    return Response.json({
+      decks: decks.map((d) => ({ ...d, thumb_url: thumbByDeck.get(d.id) ?? null })),
+    });
   });
 }
 

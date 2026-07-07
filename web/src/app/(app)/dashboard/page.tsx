@@ -4,8 +4,10 @@
  * PRD §4.4 Dashboard — the sender's deck list (landing page after login).
  * Fetches GET /api/decks itself (not passed in as props from a server
  * component) since it needs to re-fetch after delete/retry actions below.
+ * Rendered as a card grid (thumbnail + title + status + actions) rather than
+ * a row list, so it scans like a deck library instead of a table.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Deck = {
@@ -15,6 +17,7 @@ type Deck = {
   last_viewed_slide_index: number;
   created_at: string;
   updated_at: string;
+  thumb_url: string | null;
 };
 
 const STATUS_LABEL: Record<Deck["status"], string> = {
@@ -31,14 +34,11 @@ const STATUS_COLOR: Record<Deck["status"], string> = {
   published: "#2d7a3a",
 };
 
-/**
- * PRD §4.4 Dashboard. Grid of the sender's decks with status badges; empty
- * state; "Upload failed" retry affordance.
- */
 export default function DashboardPage() {
   const [decks, setDecks] = useState<Deck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   async function load() {
     setError(null);
@@ -70,12 +70,27 @@ export default function DashboardPage() {
     setBusyId(null);
   }
 
+  const filtered = useMemo(() => {
+    if (!decks) return decks;
+    const q = query.trim().toLowerCase();
+    if (!q) return decks;
+    return decks.filter((d) => d.title.toLowerCase().includes(q));
+  }, [decks, query]);
+
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <h1 style={{ flex: 1 }}>Your decks</h1>
+      <div className="deck-toolbar">
+        <h1>Your decks</h1>
+        {decks && decks.length > 0 && (
+          <input
+            className="deck-search"
+            placeholder="Search decks…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        )}
         <Link className="btn" href="/decks/new">
-          New Deck
+          + New deck
         </Link>
       </div>
 
@@ -92,38 +107,52 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {decks && decks.length > 0 && (
-        <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
-          {decks.map((d) => (
-            <div key={d.id} className="card" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{ flex: 1 }}>
-                <Link href={`/decks/${d.id}/edit`} style={{ fontWeight: 600, color: "var(--ink)", textDecoration: "none" }}>
+      {filtered && filtered.length === 0 && decks && decks.length > 0 && (
+        <p className="muted" style={{ marginTop: 20 }}>No decks match &quot;{query}&quot;.</p>
+      )}
+
+      {filtered && filtered.length > 0 && (
+        <div className="deck-grid">
+          {filtered.map((d) => (
+            <div key={d.id} className="deck-card">
+              <Link href={`/decks/${d.id}/edit`} className="deck-card-thumb">
+                {d.thumb_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={d.thumb_url} alt="" />
+                ) : (
+                  <span className="noimg">no preview</span>
+                )}
+              </Link>
+              <div className="deck-card-body">
+                <Link href={`/decks/${d.id}/edit`} className="deck-card-title">
                   {d.title}
                 </Link>
-                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                <div className="deck-card-meta">
                   <span style={{ color: STATUS_COLOR[d.status] }}>● {STATUS_LABEL[d.status]}</span>
                   {"  ·  "}
-                  Updated {new Date(d.updated_at).toLocaleDateString()}
+                  {new Date(d.updated_at).toLocaleDateString()}
+                </div>
+                <div className="deck-card-actions">
+                  {d.status !== "uploading" && (
+                    <Link className="btn" href={`/decks/${d.id}/edit`}>
+                      {d.status === "parse_failed" ? "Open" : "Continue →"}
+                    </Link>
+                  )}
+                  {d.status === "published" && (
+                    <Link className="btn ghost" href={`/decks/${d.id}/analytics`}>
+                      Analytics
+                    </Link>
+                  )}
+                  {d.status === "parse_failed" && (
+                    <button className="btn ghost" disabled={busyId === d.id} onClick={() => retryParse(d.id)}>
+                      {busyId === d.id ? "Retrying…" : "Retry"}
+                    </button>
+                  )}
+                  <button className="btn ghost" disabled={busyId === d.id} onClick={() => deleteDeck(d.id)}>
+                    Delete
+                  </button>
                 </div>
               </div>
-              {d.status !== "uploading" && (
-                <Link className="btn" href={`/decks/${d.id}/edit`}>
-                  {d.status === "parse_failed" ? "Open" : "Continue →"}
-                </Link>
-              )}
-              {d.status === "published" && (
-                <Link className="btn ghost" href={`/decks/${d.id}/analytics`}>
-                  Analytics
-                </Link>
-              )}
-              {d.status === "parse_failed" && (
-                <button className="btn ghost" disabled={busyId === d.id} onClick={() => retryParse(d.id)}>
-                  {busyId === d.id ? "Retrying…" : "Retry"}
-                </button>
-              )}
-              <button className="btn ghost" disabled={busyId === d.id} onClick={() => deleteDeck(d.id)}>
-                Delete
-              </button>
             </div>
           ))}
         </div>

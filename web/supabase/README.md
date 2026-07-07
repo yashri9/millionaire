@@ -11,6 +11,8 @@ migrations/
   0004_page_images.sql # adds slides.image_path / slides.thumb_path (rendered page images)
   0005_avatar_video.sql # adds slides.avatar_video_path (real AI avatar video, D-ID — not wired into UI yet)
   0006_narration_prompt.sql # adds profiles.narration_prompt (user-editable override, see Account settings)
+  0007_onboarding.sql # adds profiles.onboarding_* (cohort questions, see src/app/onboarding)
+  0008_feature_requests.sql # feature_requests / feature_request_votes — shared board, see (app)/feedback
 ```
 
 ## Apply the migrations
@@ -59,6 +61,8 @@ npx supabase db push
 5. Paste the contents of `0004_page_images.sql`, run it.
 6. Paste the contents of `0005_avatar_video.sql`, run it.
 7. Paste the contents of `0006_narration_prompt.sql`, run it.
+8. Paste the contents of `0007_onboarding.sql`, run it.
+9. Paste the contents of `0008_feature_requests.sql`, run it.
 
 ## What to configure in the dashboard (not in SQL)
 
@@ -73,6 +77,9 @@ npx supabase db push
 - Sender access is enforced by RLS: `deck.user_id = auth.uid()` cascades to
   slides / script_versions / shares / analytics via the `owns_deck` /
   `owns_share` helpers.
+- **Exception:** `feature_requests` / `feature_request_votes` are deliberately
+  NOT owner-scoped — every signed-in user can read the whole board (it's a
+  shared Canny-style list), but can only insert/delete their own rows.
 - The **recipient** (prospect) has **no login and no direct table access**.
   The `/d/[token]` runtime is served by server routes using the **service role**
   client, which bypasses RLS. There are intentionally **no anon/public

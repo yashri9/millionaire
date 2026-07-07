@@ -117,6 +117,14 @@ supabase/migrations/   SQL schema + RLS + grants, applied in filename order
   both `decks/[id]/edit/LivePreview.tsx` (sender rehearsal) and
   `d/[token]/Player.tsx` (real recipient) — changes usually need to land in
   both call sites, not just the shared component.
+- **Feature request board** → `(app)/feedback/page.tsx` +
+  `api/feature-requests/*`. Deliberately NOT owner-scoped like everything
+  else in this app — `feature_requests`/`feature_request_votes` are a shared
+  board every signed-in user reads and can post/vote on (see
+  `supabase/README.md`'s "Exception" note).
+- **Cohort onboarding** → `(app)/layout.tsx` redirects to `src/app/onboarding`
+  once, right after first login, if `profiles.onboarding_completed_at` is
+  null. Questions live in `lib/onboardingQuestions.ts`.
 - **Add a new authenticated page** → put it under `(app)/`, follow
   `dashboard/page.tsx`'s pattern (client component, fetches its own data on
   mount) unless it's simple enough to be a server component like the

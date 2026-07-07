@@ -19,6 +19,12 @@ export interface Profile {
   name: string | null;
   google_id: string | null;
   narration_prompt: string | null; // custom override for lib/prompts.ts's DEFAULT_NARRATION_INSTRUCTIONS
+  onboarding_role: string | null;
+  onboarding_use_case: string | null;
+  onboarding_team_size: string | null;
+  onboarding_referral_source: string | null;
+  onboarding_challenge: string | null;
+  onboarding_completed_at: string | null; // set once the src/app/onboarding wizard is finished or skipped
   created_at: string;
   updated_at: string;
 }
@@ -88,5 +94,20 @@ export interface Question {
   confidence: number | null;
   slide_ref: number | null;
   bullet_ref: number | null;
+  created_at: string;
+}
+
+/** Shared feature-request board (0008_feature_requests.sql) — not owner-scoped like the types above. */
+export interface FeatureRequest {
+  id: string;
+  user_id: string;
+  title: string;
+  details: string | null;
+  created_at: string;
+}
+
+export interface FeatureRequestVote {
+  request_id: string;
+  user_id: string;
   created_at: string;
 }
