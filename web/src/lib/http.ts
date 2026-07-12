@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { safeRedirectPath } from "@/lib/safeRedirect";
+
+export { safeRedirectPath } from "@/lib/safeRedirect";
 
 /**
  * Small HTTP helpers so route handlers stay consistent and NEVER leak stack
@@ -18,7 +21,6 @@ export class ApiError extends Error {
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
-
 /** Wrap a route handler body so errors become clean JSON responses. */
 export async function handle(
   fn: () => Promise<Response>,

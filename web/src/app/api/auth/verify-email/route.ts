@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
+import { safeRedirectPath } from "@/lib/safeRedirect";
 
 /**
  * GET /api/auth/verify-email (PRD §4.1). The signup confirmation email links
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeRedirectPath(searchParams.get("next"));
   const redirectTo = (path: string) => NextResponse.redirect(new URL(path, publicEnv.appUrl));
 
   if (!token_hash || !type) return redirectTo("/verify-email?error=invalid_link");

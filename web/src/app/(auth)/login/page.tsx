@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
+import { safeRedirectPath } from "@/lib/safeRedirect";
 
 /**
  * PRD §4.2 Log in. Generic error copy (no field-level enumeration).
@@ -15,10 +16,17 @@ export default function LoginPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("error") === "oauth_failed") {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error === "oauth_failed") {
       setMsg("Google sign-in didn't complete. Please try again.");
+    } else if (error === "config") {
+      setMsg("This app isn't configured correctly. Contact support.");
     }
   }, []);
+
+  function postLoginPath(): string {
+    return safeRedirectPath(new URLSearchParams(window.location.search).get("next"));
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +37,7 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMsg("Email or password is incorrect.");
-    else window.location.href = "/dashboard";
+    else window.location.href = postLoginPath();
   }
 
   async function onGoogle() {

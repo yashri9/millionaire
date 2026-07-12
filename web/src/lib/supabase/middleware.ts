@@ -10,8 +10,31 @@ import { publicEnv, isSupabaseConfigured } from "@/lib/env";
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // In stub/dev mode (no Supabase env), don't gate anything.
-  if (!isSupabaseConfigured()) return response;
+  const path = request.nextUrl.pathname;
+
+  // Stub/dev: no Supabase env → open access so pages/API stubs still render locally.
+  // Production: missing env is a deploy misconfig → fail closed on sender routes.
+  if (!isSupabaseConfigured()) {
+    const publicWhenMisconfigured =
+      path === "/" ||
+      path.startsWith("/d/") ||
+      path.startsWith("/api/d/") ||
+      path.startsWith("/login") ||
+      path.startsWith("/signup") ||
+      path.startsWith("/forgot-password") ||
+      path.startsWith("/reset-password") ||
+      path.startsWith("/verify-email") ||
+      path.startsWith("/check-email") ||
+      path.startsWith("/api/auth/");
+
+    if (process.env.NODE_ENV !== "production") return response;
+    if (publicWhenMisconfigured) return response;
+
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("error", "config");
+    return NextResponse.redirect(url);
+  }
 
   const supabase = createServerClient(
     publicEnv.supabaseUrl,
@@ -38,7 +61,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
   const isPublic =
     path === "/" ||
     path.startsWith("/login") ||
