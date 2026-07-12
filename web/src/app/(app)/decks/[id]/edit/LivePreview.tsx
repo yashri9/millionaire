@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChatBubble } from "@/components/ChatBubble";
 import type { Deck, InboxItem, Share, Slide, TranscriptMsg } from "./types";
 
 const SUGGESTIONS = [
@@ -217,7 +218,12 @@ export function LivePreview({
             Happy with the walkthrough? Publish a full-screen link anyone can watch.
           </p>
           <button className="btn" style={{ width: "100%" }} onClick={onPublish} disabled={publishing}>
-            {publishing ? "Publishing…" : deck.status === "published" ? "Republish → shareable link" : "Publish → shareable link"}
+            {publishing ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+                <span className="spinner sm" style={{ borderTopColor: "#fff", borderColor: "rgba(255,255,255,.35)" }} />
+                Publishing…
+              </span>
+            ) : deck.status === "published" ? "Republish → shareable link" : "Publish → shareable link"}
           </button>
           {share && (
             <div className="share-card" style={{ marginTop: 16 }}>
@@ -277,13 +283,13 @@ export function LivePreview({
           <h3>Ask the deck a question</h3>
           <div className="transcript">
             {transcript.map((m, i) => (
-              <div
+              <ChatBubble
                 key={i}
                 className={`msg ${m.role === "prospect" ? "prospect" : "agent"} ${m.escalated ? "escalated" : ""}`}
               >
                 {m.text}
                 {m.slideRef && <span className="cite">from slide {m.slideRef}</span>}
-              </div>
+              </ChatBubble>
             ))}
           </div>
           <div className="suggest">

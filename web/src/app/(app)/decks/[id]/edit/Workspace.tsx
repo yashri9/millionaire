@@ -65,7 +65,15 @@ export function Workspace({
   }
 
   return (
-    <>
+    <div className={`page-enter${generating ? " studio-busy" : ""}`}>
+      {generating && (
+        <div className="studio-busy-overlay" style={{ position: "fixed", inset: 0, zIndex: 50, borderRadius: 0 }}>
+          <div className="loading-block">
+            <div className="spinner" />
+            <p className="muted">Generating narration…</p>
+          </div>
+        </div>
+      )}
       <div className="studio-head">
         <h2 style={{ flex: 1 }}>{deck.title}</h2>
         <span className="pill">{slides.length} {slides.length === 1 ? "page" : "pages"}</span>
@@ -147,7 +155,7 @@ export function Workspace({
             <button className="btn ghost" onClick={previewVoice} type="button">▶ Preview voice</button>
           </div>
           <span style={{ flex: 1 }} />
-          <span className="muted" style={{ fontSize: 12 }}>
+          <span className={`save-badge ${saveState === "idle" ? "" : saveState}`}>
             {saveState === "saving" && "Saving…"}
             {saveState === "saved" && "Saved"}
             {saveState === "failed" && "Save failed"}
@@ -157,6 +165,6 @@ export function Workspace({
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }

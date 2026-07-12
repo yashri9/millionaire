@@ -59,7 +59,7 @@ export default function NewDeckPage() {
     <>
       <h1>New deck</h1>
       <div
-        className="card"
+        className={`card upload-zone${dragOver ? " drag-over" : ""}${uploading ? " busy" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -75,7 +75,11 @@ export default function NewDeckPage() {
         }}
       >
         {uploading ? (
-          <p className="muted">Uploading and parsing…</p>
+          <div className="loading-block">
+            <div className="spinner" />
+            <p className="muted">Uploading and parsing…</p>
+            <div className="skeleton skeleton-text" style={{ width: 220, marginTop: 4 }} />
+          </div>
         ) : (
           <p className="muted">Drop a .pptx or .pdf here (max 25MB), or click to choose a file</p>
         )}

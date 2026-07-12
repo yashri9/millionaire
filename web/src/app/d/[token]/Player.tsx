@@ -1,22 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChatBubble } from "@/components/ChatBubble";
 import type { RecipientDeck } from "@/lib/recipient";
+
+type LogMsg = { role: "you" | "agent"; text: string; escalated?: boolean; slideRef?: number | null };
 
 /**
  * PRD §4.12 recipient player (client). Slide nav + narration (Web Speech API)
  * + grounded Q&A. Q&A NEVER shows a raw error — on failure the server route
  * auto-escalates and returns a warm hand-off line.
- *
- * Event logging (PRD §4.10): slide_viewed on navigation, completed on
- * reaching the last slide — best-effort, never blocks the UI on failure.
  */
 export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: string | null }) {
   const [idx, setIdx] = useState(0);
   const [q, setQ] = useState("");
-  const [log, setLog] = useState<{ role: "you" | "agent"; text: string; escalated?: boolean }[]>([]);
-  const slide = deck.slides[idx];
+  const [asking, setAsking] = useState(false);
+  const [log, setLog] = useState<LogMsg[]>([]);
   const completedLogged = useRef(false);
+  const slide = deck.slides[idx];
 
   function logEvent(type: "slide_viewed" | "completed", payload?: Record<string, unknown>) {
     if (!sessionId) return;
@@ -38,9 +39,10 @@ export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: st
 
   async function ask() {
     const question = q.trim();
-    if (!question) return;
+    if (!question || asking) return;
     setQ("");
     setLog((l) => [...l, { role: "you", text: question }]);
+    setAsking(true);
     try {
       const r = await fetch(`/api/d/${deck.token}/ask`, {
         method: "POST",
@@ -48,49 +50,91 @@ export function Player({ deck, sessionId }: { deck: RecipientDeck; sessionId: st
         body: JSON.stringify({ question, session_id: sessionId }),
       });
       const data = await r.json();
-      setLog((l) => [...l, { role: "agent", text: data.answer, escalated: data.escalate }]);
-    } catch {
-      // Never surface a raw error to a prospect.
       setLog((l) => [
         ...l,
-        { role: "agent", text: `Good question — let me get ${deck.repName} to answer that directly for you.`, escalated: true },
+        { role: "agent", text: data.answer, escalated: data.escalate, slideRef: data.slide_ref },
       ]);
+    } catch {
+      setLog((l) => [
+        ...l,
+        {
+          role: "agent",
+          text: `Good question — let me get ${deck.repName} to answer that directly for you.`,
+          escalated: true,
+        },
+      ]);
+    } finally {
+      setAsking(false);
     }
   }
 
   return (
-    <main className="wrap">
+    <main className="wrap page-enter">
       <h1>{deck.title}</h1>
-      <div className="card" style={{ background: "#0f1720", color: "#fff", minHeight: 260 }}>
-        <h2>{slide?.title}</h2>
-        <ul>{slide?.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>
-        {slide?.narration && <p style={{ fontStyle: "italic", color: "#9fb0c0" }}>{slide.narration}</p>}
-      </div>
-      <div style={{ display: "flex", gap: 10, margin: "12px 0" }}>
-        <button className="btn ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))}>
-          Prev
-        </button>
-        <span className="muted" style={{ flex: 1, textAlign: "center" }}>
-          Slide {idx + 1} of {deck.slides.length}
-        </span>
-        <button className="btn ghost" onClick={() => setIdx((i) => Math.min(deck.slides.length - 1, i + 1))}>
-          Next
-        </button>
+
+      <div className="player-card">
+        <div className="player-head">
+          <span className="who">Shared by {deck.repName}</span>
+          <div className="progress-dots">
+            {deck.slides.map((_, i) => (
+              <span key={i} className={i === idx ? "active" : i < idx ? "done" : ""} />
+            ))}
+          </div>
+        </div>
+        <div className="stage-view">
+          <div className="stage-inner">
+            <div className="textslide">
+              <h2>{slide?.title || `Slide ${idx + 1}`}</h2>
+              <p>{slide?.bullets?.length ? slide.bullets.join("\n") : slide?.text}</p>
+            </div>
+          </div>
+          {slide?.narration && <div className="caption">{slide.narration}</div>}
+        </div>
+        <div className="controls">
+          <button className="btn ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}>
+            ◀ Prev
+          </button>
+          <span className="muted" style={{ flex: 1, textAlign: "center", fontSize: 12 }}>
+            Slide {idx + 1} of {deck.slides.length}
+          </span>
+          <button
+            className="btn ghost"
+            onClick={() => setIdx((i) => Math.min(deck.slides.length - 1, i + 1))}
+            disabled={idx >= deck.slides.length - 1}
+          >
+            Next ▶
+          </button>
+        </div>
       </div>
 
-      <div className="card">
+      <div className="qa-card" style={{ marginTop: 16 }}>
         <h3>Ask the deck a question</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+        <div className="transcript">
           {log.map((m, i) => (
-            <div key={i} className="muted">
-              <strong>{m.role === "you" ? "You" : "Agent"}:</strong>{" "}
-              <span style={{ color: m.escalated ? "#b4620a" : "inherit" }}>{m.text}</span>
-            </div>
+            <ChatBubble
+              key={i}
+              className={`msg ${m.role === "you" ? "prospect" : "agent"} ${m.escalated ? "escalated" : ""}`}
+            >
+              {m.text}
+              {m.slideRef && <span className="cite">from slide {m.slideRef}</span>}
+            </ChatBubble>
           ))}
+          {asking && (
+            <div className="loading-block" style={{ flexDirection: "row", padding: 8 }}>
+              <div className="spinner sm" />
+              <span className="muted" style={{ fontSize: 13 }}>Thinking…</span>
+            </div>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. how is pricing structured?" />
-          <button className="btn" onClick={ask}>
+        <div className="qa-input-row">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ask()}
+            placeholder="e.g. how is pricing structured?"
+            disabled={asking}
+          />
+          <button className="btn" onClick={ask} disabled={asking || !q.trim()}>
             Ask
           </button>
         </div>

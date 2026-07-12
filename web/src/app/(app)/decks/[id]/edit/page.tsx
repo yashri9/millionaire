@@ -113,7 +113,24 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     setShare(null);
   }
 
-  if (loading) return <p className="muted">Loading…</p>;
+  if (loading) {
+    return (
+      <div className="page-enter">
+        <div className="skeleton skeleton-title" style={{ marginBottom: 20 }} />
+        <div className="page-grid">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="page-card">
+              <div className="skeleton skeleton-thumb" />
+              <div className="page-body">
+                <div className="skeleton skeleton-text" />
+                <div className="skeleton skeleton-text short" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (!deck) return <p className="muted">{error ?? "Deck not found."}</p>;
 
   const renderWarning =

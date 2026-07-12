@@ -76,7 +76,18 @@ export default function DashboardPage() {
 
       {error && <p className="muted">{error}</p>}
 
-      {decks === null && !error && <p className="muted">Loading…</p>}
+      {decks === null && !error && (
+        <div className="deck-list">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card deck-row">
+              <div style={{ flex: 1 }}>
+                <div className="skeleton skeleton-title" />
+                <div className="skeleton skeleton-text short" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {decks && decks.length === 0 && (
         <div className="card" style={{ marginTop: 20, textAlign: "center", padding: 48 }}>
@@ -88,9 +99,9 @@ export default function DashboardPage() {
       )}
 
       {decks && decks.length > 0 && (
-        <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
+        <div className="deck-list">
           {decks.map((d) => (
-            <div key={d.id} className="card" style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div key={d.id} className="card deck-row card-interactive">
               <div style={{ flex: 1 }}>
                 <Link href={`/decks/${d.id}/edit`} style={{ fontWeight: 600, color: "var(--ink)", textDecoration: "none" }}>
                   {d.title}
