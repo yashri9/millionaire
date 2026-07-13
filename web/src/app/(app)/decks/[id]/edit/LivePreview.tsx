@@ -22,7 +22,6 @@ export function LivePreview({
   onPublish,
   onRevoke,
   publishing,
-  onImageError,
 }: {
   deck: Deck;
   slides: Slide[];
@@ -35,7 +34,6 @@ export function LivePreview({
   onPublish: () => Promise<void>;
   onRevoke: () => Promise<void>;
   publishing: boolean;
-  onImageError?: () => void;
 }) {
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -54,6 +52,7 @@ export function LivePreview({
   const dwellTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const dwellStart = useRef<number>(Date.now());
   const playingRef = useRef(playing);
+  const slideIndexTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   playingRef.current = playing;
 
   const slide = slides[idx];
@@ -100,13 +99,28 @@ export function LivePreview({
   }
 
   useEffect(() => {
-    goLive(0, false);
+    const start = Math.min(Math.max(deck.last_viewed_slide_index ?? 0, 0), Math.max(slides.length - 1, 0));
+    goLive(start, false);
     return () => {
       window.speechSynthesis.cancel();
       if (dwellTimer.current) clearInterval(dwellTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (slideIndexTimer.current) clearTimeout(slideIndexTimer.current);
+    slideIndexTimer.current = setTimeout(() => {
+      fetch(`/api/decks/${deck.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ last_viewed_slide_index: idx }),
+      });
+    }, 2000);
+    return () => {
+      if (slideIndexTimer.current) clearTimeout(slideIndexTimer.current);
+    };
+  }, [idx, deck.id]);
 
   function togglePlay() {
     if (playing) {
@@ -258,7 +272,16 @@ export function LivePreview({
             </div>
             <div className="stage-inner">
               {slide?.image_url ? (
-                <img src={slide.image_url} alt={`Slide ${slide.order_index}`} onError={onImageError} />
+                <img
+                  src={slide.image_url}
+                  alt={`Slide ${slide.order_index}`}
+                  onError={async (e) => {
+                    const res = await fetch(`/api/decks/${deck.id}`);
+                    const data = await res.json();
+                    const fresh = data.slides.find((s: Slide) => s.id === slide.id)?.image_url;
+                    if (fresh) (e.target as HTMLImageElement).src = fresh;
+                  }}
+                />
               ) : (
                 <div className="textslide">
                   <h2>{slide?.title || `Slide ${slide?.order_index}`}</h2>

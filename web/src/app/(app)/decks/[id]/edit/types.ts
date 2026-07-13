@@ -13,6 +13,7 @@ export type Deck = {
   status: "uploading" | "parse_failed" | "draft" | "published";
   rendered?: boolean;
   render_warning?: string | null;
+  last_viewed_slide_index?: number;
 };
 
 export type Share = { token: string; url: string } | null;

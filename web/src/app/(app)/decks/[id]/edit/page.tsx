@@ -35,6 +35,7 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   const [voiceRate, setVoiceRate] = useState(1);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNarrationRef = useRef<Record<string, string> | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/decks/${id}`);
@@ -72,10 +73,24 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     setNarration(byId);
   }
 
+  function flushSave() {
+    if (!pendingNarrationRef.current) return;
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const payload = Object.entries(pendingNarrationRef.current).map(([slide_id, text]) => ({ slide_id, text }));
+    pendingNarrationRef.current = null;
+    const blob = new Blob([JSON.stringify({ narration: payload })], { type: "application/json" });
+    navigator.sendBeacon(`/api/decks/${id}/script/beacon`, blob);
+  }
+
   function scheduleSave(next: Record<string, string>) {
     setSaveState("saving");
+    pendingNarrationRef.current = next;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
+      pendingNarrationRef.current = null;
       const payload = Object.entries(next).map(([slide_id, text]) => ({ slide_id, text }));
       const res = await fetch(`/api/decks/${id}/script`, {
         method: "PATCH",
@@ -85,6 +100,22 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
       setSaveState(res.ok ? "saved" : "failed");
     }, 1500);
   }
+
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") flushSave();
+    }
+    function onPageHide() {
+      flushSave();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   function onNarrationChange(slideId: string, text: string) {
     const next = { ...narration, [slideId]: text };
@@ -143,14 +174,6 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     setDeck(data.deck);
   }
 
-  // Signed slide URLs expire after 1h — refresh before they go stale during long sessions.
-  useEffect(() => {
-    if (loading) return;
-    const interval = setInterval(refreshSlides, 45 * 60 * 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, loading]);
-
   if (mode === "live") {
     return (
       <LivePreview
@@ -165,7 +188,6 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
         onBack={() => setMode("workspace")}
         onPublish={publish}
         onRevoke={revoke}
-        onImageError={refreshSlides}
       />
     );
   }
@@ -190,7 +212,6 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
         renderWarning={renderWarning}
         onOpenLightbox={setLightboxIndex}
         onEnterLive={() => setMode("live")}
-        onImageError={refreshSlides}
       />
       {lightboxIndex !== null && (
         <Lightbox

@@ -20,7 +20,6 @@ export function Workspace({
   renderWarning,
   onOpenLightbox,
   onEnterLive,
-  onImageError,
 }: {
   deck: Deck;
   slides: Slide[];
@@ -38,7 +37,6 @@ export function Workspace({
   renderWarning: string | null;
   onOpenLightbox: (index: number) => void;
   onEnterLive: () => void;
-  onImageError?: () => void;
 }) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const narrationReady = slides.length > 0 && slides.every((s) => narration[s.id]?.trim());
@@ -117,7 +115,12 @@ export function Workspace({
                     src={s.thumb_url}
                     alt={`Slide ${s.order_index}`}
                     loading="lazy"
-                    onError={onImageError}
+                    onError={async (e) => {
+                      const res = await fetch(`/api/decks/${deck.id}`);
+                      const data = await res.json();
+                      const fresh = data.slides.find((sl: Slide) => sl.id === s.id)?.thumb_url;
+                      if (fresh) (e.target as HTMLImageElement).src = fresh;
+                    }}
                   />
                 ) : (
                   <div className="noimg">no page image<br />(text only)</div>
