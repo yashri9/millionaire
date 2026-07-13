@@ -16,7 +16,9 @@ export function Workspace({
   voiceRate,
   onVoiceRateChange,
   generating,
+  regeneratingSlideId,
   onGenerate,
+  onRegenerateLine,
   renderWarning,
   onOpenLightbox,
   onEnterLive,
@@ -33,7 +35,9 @@ export function Workspace({
   voiceRate: number;
   onVoiceRateChange: (v: number) => void;
   generating: boolean;
-  onGenerate: () => void;
+  regeneratingSlideId: string | null;
+  onGenerate: (mode: "fill" | "regenerate_all") => void;
+  onRegenerateLine: (slideId: string) => void;
   renderWarning: string | null;
   onOpenLightbox: (index: number) => void;
   onEnterLive: () => void;
@@ -87,9 +91,14 @@ export function Workspace({
             placeholder="e.g. Priya"
           />
         </label>
-        <button className="btn ghost" onClick={onGenerate} disabled={generating || slides.length === 0}>
-          {generating ? "Generating…" : anyNarration ? "Regenerate narration" : "Generate narration →"}
+        <button className="btn ghost" onClick={() => onGenerate("fill")} disabled={generating || slides.length === 0}>
+          {generating ? "Generating…" : anyNarration ? "Fill missing narration →" : "Generate narration →"}
         </button>
+        {anyNarration && (
+          <button className="btn ghost" onClick={() => onGenerate("regenerate_all")} disabled={generating}>
+            Regenerate all
+          </button>
+        )}
       </div>
 
       {renderWarning && <div className="warn" style={{ color: "var(--escalate)", background: "var(--escalate-soft)", border: "1px solid #ebc694", borderRadius: 8, padding: "9px 12px", fontSize: "12.5px", marginBottom: 16 }}>{renderWarning}</div>}
@@ -127,7 +136,18 @@ export function Workspace({
                 )}
               </div>
               <div className="page-body">
-                <div className="lab">Narration</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div className="lab">Narration</div>
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    style={{ fontSize: 12, padding: "2px 8px" }}
+                    onClick={() => onRegenerateLine(s.id)}
+                    disabled={generating || regeneratingSlideId === s.id}
+                  >
+                    {regeneratingSlideId === s.id ? "…" : "↻ Regenerate"}
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   value={narration[s.id] ?? ""}

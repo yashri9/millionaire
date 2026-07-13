@@ -12,27 +12,70 @@ const MAX_TEXT_PER_SLIDE = 1200;
 
 export type SlideInput = { index: number; title?: string; text?: string };
 
-export async function generateNarration(slides: SlideInput[]): Promise<string[]> {
-  const system =
-    "You write spoken narration scripts for B2B sales pitch decks, read aloud by " +
-    "text-to-speech, one segment per slide, playing in sync as each slide is shown. " +
-    "Write exactly one spoken line per slide (max 32 words), building a coherent arc " +
-    "across the slides in order. Tone: confident, plain, like a skilled human rep " +
-    "talking to a busy prospect. No hype adjectives, no exclamation marks, no emoji. " +
-    "Return ONLY a raw JSON array of strings, same length and order as the input " +
-    "slides, nothing else — no markdown, no code fences, no commentary.";
+const NARRATION_SYSTEM_PROMPT =
+  "You write spoken narration for a B2B sales pitch deck, read aloud by text-to-speech " +
+  "in sync as each slide is shown to a prospect who can see the slide at the same time.\n\n" +
+  "Rules:\n" +
+  "- One spoken line per slide, max 32 words.\n" +
+  "- Never just restate the slide's title or bullets verbatim — the viewer can already " +
+  "read those. Add the color, reasoning, or implication a live rep would add out loud.\n" +
+  "- Build one coherent arc across all slides in order, like a single rep talking start to " +
+  "finish, not isolated captions.\n" +
+  "- Vary sentence openers — do not start consecutive lines with the same phrase " +
+  "(e.g. 'Now,' / 'Next,' / 'Moving on,') more than once across the whole deck.\n" +
+  "- The first slide should hook interest; the last slide should land on a clear " +
+  "next step or ask, not a summary.\n" +
+  "- Tone: confident, plain, like a skilled human rep talking to a busy prospect. " +
+  "No hype adjectives, no exclamation marks, no emoji, no filler like 'as you can see.'\n\n" +
+  'Return ONLY raw JSON in exactly this shape: {"lines": ["...", "..."]}, same length ' +
+  "and order as the input slides — no markdown, no code fences, no commentary.";
 
+export async function generateNarration(slides: SlideInput[]): Promise<string[]> {
   const payload = slides.map((s) => ({
     slide: s.index,
     text: (s.text ?? "").slice(0, MAX_TEXT_PER_SLIDE),
   }));
 
-  const raw = await callLLM(system, JSON.stringify(payload), 1600);
-  const lines = JSON.parse(raw);
-  if (!Array.isArray(lines) || lines.length !== slides.length) {
-    throw new Error("Model returned a mismatched script length");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await callLLM(NARRATION_SYSTEM_PROMPT, JSON.stringify(payload), 1600, {
+      jsonMode: true,
+    });
+    try {
+      const parsed = JSON.parse(raw);
+      const lines = Array.isArray(parsed) ? parsed : parsed.lines;
+      if (Array.isArray(lines) && lines.length === slides.length) {
+        return lines.map((l) => String(l));
+      }
+    } catch {
+      /* fall through to retry */
+    }
   }
-  return lines.map((l) => String(l));
+  throw new Error("Model returned a mismatched script length");
+}
+
+export async function regenerateOneLine(
+  slides: SlideInput[],
+  existingLines: string[],
+  targetIndex: number,
+): Promise<string> {
+  const system =
+    "You write spoken narration for a B2B sales pitch deck. Below is the full deck " +
+    "(all slides) and the current narration line for every slide except one, marked " +
+    "[REWRITE THIS ONE]. Write a single new line (max 32 words) for that slide only — " +
+    "it must fit naturally between the line before it and the line after it, matching " +
+    "the tone and continuing the arc. Return ONLY that one line as plain text, nothing else.";
+
+  const context = slides
+    .map(
+      (s, i) =>
+        `Slide ${s.index}: ${(s.text ?? "").slice(0, 400)}\nCurrent line: ${
+          i === targetIndex ? "[REWRITE THIS ONE]" : existingLines[i]
+        }`,
+    )
+    .join("\n\n");
+
+  const raw = await callLLM(system, context, 200);
+  return raw.trim().replace(/^["']|["']$/g, "");
 }
 
 export type AskResult = {

@@ -25,6 +25,7 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [regeneratingSlideId, setRegeneratingSlideId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [mode, setMode] = useState<"workspace" | "live">("workspace");
@@ -58,19 +59,47 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
     load();
   }, [load]);
 
-  async function generateScript() {
+  async function generateScript(mode: "fill" | "regenerate_all") {
+    const anyNarration = Object.values(narration).some((t) => t.trim());
+    if (mode === "regenerate_all" && anyNarration) {
+      if (!window.confirm("This replaces all narration on every slide, including your edits. Continue?")) return;
+    }
     setGenerating(true);
     setError(null);
-    const res = await fetch(`/api/decks/${id}/generate-script`, { method: "POST" });
+    const res = await fetch(`/api/decks/${id}/generate-script`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
     const data = await res.json().catch(() => null);
     setGenerating(false);
     if (!res.ok) {
       setError(data?.error ?? "Couldn't generate a script. Try again.");
       return;
     }
-    const byId: Record<string, string> = {};
-    for (const n of data.script.narration as { slide_id: string; text: string }[]) byId[n.slide_id] = n.text;
+    const byId: Record<string, string> = { ...narration };
+    for (const n of data.script.narration as { slide_id: string; text: string }[]) {
+      if (mode === "regenerate_all" || !byId[n.slide_id]?.trim()) byId[n.slide_id] = n.text;
+    }
     setNarration(byId);
+    scheduleSave(byId);
+  }
+
+  async function regenerateLine(slideId: string) {
+    setRegeneratingSlideId(slideId);
+    setError(null);
+    const res = await fetch(`/api/decks/${id}/script/regenerate-line`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slide_id: slideId }),
+    });
+    const data = await res.json().catch(() => null);
+    setRegeneratingSlideId(null);
+    if (!res.ok) {
+      setError(data?.error ?? "Couldn't regenerate this line. Try again.");
+      return;
+    }
+    onNarrationChange(data.slide_id, data.narration);
   }
 
   function flushSave() {
@@ -208,7 +237,9 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
         voiceRate={voiceRate}
         onVoiceRateChange={setVoiceRate}
         generating={generating}
+        regeneratingSlideId={regeneratingSlideId}
         onGenerate={generateScript}
+        onRegenerateLine={regenerateLine}
         renderWarning={renderWarning}
         onOpenLightbox={setLightboxIndex}
         onEnterLive={() => setMode("live")}

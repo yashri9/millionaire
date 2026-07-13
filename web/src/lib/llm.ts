@@ -39,6 +39,7 @@ export async function callLLM(
   system: string,
   user: string,
   maxTokens = 1200,
+  options?: { jsonMode?: boolean },
 ): Promise<string> {
   const provider = serverEnv.llmProvider;
 
@@ -55,6 +56,7 @@ export async function callLLM(
       body: JSON.stringify({
         model: serverEnv.anthropicModel,
         max_tokens: maxTokens,
+        temperature: 0.6,
         system,
         messages: [{ role: "user", content: user }],
       }),
@@ -78,6 +80,8 @@ export async function callLLM(
     body: JSON.stringify({
       model: serverEnv.groqModel,
       max_tokens: maxTokens,
+      temperature: 0.6,
+      ...(options?.jsonMode ? { response_format: { type: "json_object" } } : {}),
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

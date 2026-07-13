@@ -2,25 +2,15 @@ import { requireUser } from "@/lib/auth";
 import { assertDeckOwner } from "@/lib/ownership";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient } from "@/lib/supabase/server";
-import { generateNarration } from "@/lib/prompts";
+import { regenerateOneLine } from "@/lib/prompts";
 import { LLMError } from "@/lib/llm";
 
 type Ctx = { params: Promise<{ id: string }> };
 type Narration = { slide_id: string; text: string }[];
-type Mode = "fill" | "regenerate_all";
-
-function slideInput(slides: { id: string; order_index: number; title: string | null; bullets: string[] | null }[]) {
-  return slides.map((s) => ({
-    index: s.order_index,
-    title: s.title ?? undefined,
-    text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
-  }));
-}
 
 /**
- * POST /api/decks/:id/generate-script — call the LLM to draft narration and
- * create a draft script_versions row (PRD §4.6). Explicit user action only.
- * `fill` only generates missing lines; `regenerate_all` replaces every slide.
+ * POST /api/decks/:id/script/regenerate-line — rewrite narration for one slide
+ * while keeping the rest of the deck's arc intact.
  */
 export async function POST(req: Request, { params }: Ctx) {
   return handle(async () => {
@@ -28,8 +18,8 @@ export async function POST(req: Request, { params }: Ctx) {
     const user = await requireUser();
     const deck = await assertDeckOwner(id, user.id);
 
-    const body = (await req.json().catch(() => ({}))) as { mode?: Mode };
-    const mode: Mode = body.mode === "regenerate_all" ? "regenerate_all" : "fill";
+    const body = (await req.json()) as { slide_id?: string };
+    if (!body.slide_id) throw new ApiError(400, "slide_id is required");
 
     const supabase = await createServerClient();
     const { data: slides, error: slidesError } = await supabase
@@ -38,7 +28,10 @@ export async function POST(req: Request, { params }: Ctx) {
       .eq("deck_id", id)
       .order("order_index");
     if (slidesError) throw slidesError;
-    if (!slides || slides.length === 0) throw new ApiError(409, "This deck has no slides to write narration for");
+    if (!slides || slides.length === 0) throw new ApiError(409, "This deck has no slides");
+
+    const targetIndex = slides.findIndex((s) => s.id === body.slide_id);
+    if (targetIndex === -1) throw new ApiError(404, "Slide not found");
 
     const { data: latest } = await supabase
       .from("script_versions")
@@ -49,41 +42,32 @@ export async function POST(req: Request, { params }: Ctx) {
       .maybeSingle();
 
     const existingById: Record<string, string> = {};
-    const hasDraft = latest && !latest.is_published;
-    if (hasDraft && Array.isArray(latest.narration)) {
+    if (latest && Array.isArray(latest.narration)) {
       for (const n of latest.narration as Narration) existingById[n.slide_id] = n.text;
     }
 
-    let slidesToGenerate = slides;
-    if (mode === "fill" && hasDraft) {
-      slidesToGenerate = slides.filter((s) => !existingById[s.id]?.trim());
-    }
+    const slideInputs = slides.map((s) => ({
+      index: s.order_index,
+      title: s.title ?? undefined,
+      text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
+    }));
+    const existingLines = slides.map((s) => existingById[s.id] ?? "");
 
-    if (slidesToGenerate.length === 0) {
-      if (latest) return Response.json({ script: latest });
-      throw new ApiError(409, "All slides already have narration");
-    }
-
-    let lines: string[];
+    let newLine: string;
     try {
-      lines = await generateNarration(slideInput(slidesToGenerate));
+      newLine = await regenerateOneLine(slideInputs, existingLines, targetIndex);
     } catch (err) {
       if (err instanceof LLMError) throw new ApiError(502, err.message);
       throw new ApiError(502, "The model returned something we couldn't use. Try again.");
     }
 
-    const generatedById: Record<string, string> = {};
-    slidesToGenerate.forEach((s, i) => {
-      generatedById[s.id] = lines[i] ?? "";
-    });
-
     const narration: Narration = slides.map((s) => ({
       slide_id: s.id,
-      text: mode === "regenerate_all" ? (generatedById[s.id] ?? "") : (existingById[s.id]?.trim() ? existingById[s.id] : (generatedById[s.id] ?? "")),
+      text: s.id === body.slide_id ? newLine : (existingById[s.id] ?? ""),
     }));
 
     let script;
-    if (mode === "fill" && hasDraft) {
+    if (latest && !latest.is_published) {
       const { data, error } = await supabase
         .from("script_versions")
         .update({ narration })
@@ -106,6 +90,6 @@ export async function POST(req: Request, { params }: Ctx) {
       await supabase.from("decks").update({ status: "draft" }).eq("id", id);
     }
 
-    return Response.json({ script });
+    return Response.json({ narration: newLine, slide_id: body.slide_id, script });
   });
 }
