@@ -11,6 +11,8 @@ export type Deck = {
   id: string;
   title: string;
   status: "uploading" | "parse_failed" | "draft" | "published";
+  rendered?: boolean;
+  render_warning?: string | null;
 };
 
 export type Share = { token: string; url: string } | null;

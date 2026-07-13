@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { validateUpload } from "@/lib/parse";
-import { processDeckUpload } from "@/lib/deckProcessor";
+import { processDeckUpload, buildRenderWarning } from "@/lib/deckProcessor";
 import { uploadRenderedImages } from "@/lib/storage";
 import { serverEnv } from "@/lib/env";
 
@@ -68,11 +68,12 @@ export async function POST(request: Request) {
     await supabase.from("decks").update({ source_file_url: `${basePath}/${file.name}` }).eq("id", deck.id);
 
     try {
-      const { slides, images, warning } = await processDeckUpload(bytes, file.name);
-      const imagePaths = await uploadRenderedImages(storage, basePath, images);
+      const processed = await processDeckUpload(bytes, file.name);
+      const { paths: imagePaths, failedSlides } = await uploadRenderedImages(storage, basePath, processed.images);
+      const { rendered, render_warning } = buildRenderWarning(processed, failedSlides);
 
       const { error: slidesError } = await supabase.from("slides").insert(
-        slides.map((s) => ({
+        processed.slides.map((s) => ({
           deck_id: deck.id,
           order_index: s.order_index,
           title: s.title,
@@ -85,11 +86,11 @@ export async function POST(request: Request) {
 
       const { data: updated } = await supabase
         .from("decks")
-        .update({ status: "draft" })
+        .update({ status: "draft", rendered, render_warning })
         .eq("id", deck.id)
-        .select("id, title, status, last_viewed_slide_index, created_at, updated_at")
+        .select("*")
         .single();
-      return Response.json({ deck: updated ?? deck, warning }, { status: 201 });
+      return Response.json({ deck: updated ?? deck, warning: render_warning }, { status: 201 });
     } catch (err) {
       await supabase.from("decks").update({ status: "parse_failed" }).eq("id", deck.id);
       return Response.json(

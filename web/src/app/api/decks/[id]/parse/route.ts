@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { assertDeckOwner } from "@/lib/ownership";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient, createServiceClient } from "@/lib/supabase/server";
-import { processDeckUpload } from "@/lib/deckProcessor";
+import { processDeckUpload, buildRenderWarning } from "@/lib/deckProcessor";
 import { uploadRenderedImages } from "@/lib/storage";
 import { serverEnv } from "@/lib/env";
 
@@ -34,12 +34,13 @@ export async function POST(_req: Request, { params }: Ctx) {
     const bytes = await blob.arrayBuffer();
 
     try {
-      const { slides, images, warning } = await processDeckUpload(bytes, filename);
-      const imagePaths = await uploadRenderedImages(storage, basePath, images);
+      const processed = await processDeckUpload(bytes, filename);
+      const { paths: imagePaths, failedSlides } = await uploadRenderedImages(storage, basePath, processed.images);
+      const { rendered, render_warning } = buildRenderWarning(processed, failedSlides);
 
       await supabase.from("slides").delete().eq("deck_id", id);
       const { error: slidesError } = await supabase.from("slides").insert(
-        slides.map((s) => ({
+        processed.slides.map((s) => ({
           deck_id: id,
           order_index: s.order_index,
           title: s.title,
@@ -52,11 +53,11 @@ export async function POST(_req: Request, { params }: Ctx) {
 
       const { data: updated } = await supabase
         .from("decks")
-        .update({ status: "draft" })
+        .update({ status: "draft", rendered, render_warning })
         .eq("id", id)
         .select("*")
         .single();
-      return Response.json({ deck: updated, warning });
+      return Response.json({ deck: updated, warning: render_warning });
     } catch (err) {
       await supabase.from("decks").update({ status: "parse_failed" }).eq("id", id);
       throw new ApiError(422, `Parsing failed: ${(err as Error).message}`);

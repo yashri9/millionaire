@@ -20,6 +20,7 @@ export function Workspace({
   renderWarning,
   onOpenLightbox,
   onEnterLive,
+  onImageError,
 }: {
   deck: Deck;
   slides: Slide[];
@@ -37,6 +38,7 @@ export function Workspace({
   renderWarning: string | null;
   onOpenLightbox: (index: number) => void;
   onEnterLive: () => void;
+  onImageError?: () => void;
 }) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const narrationReady = slides.length > 0 && slides.every((s) => narration[s.id]?.trim());
@@ -111,7 +113,12 @@ export function Workspace({
               <div className="page-thumb" onClick={() => s.thumb_url && onOpenLightbox(i)}>
                 <span className="idx">{String(s.order_index).padStart(2, "0")}</span>
                 {s.thumb_url ? (
-                  <img src={s.thumb_url} alt={`Slide ${s.order_index}`} loading="lazy" />
+                  <img
+                    src={s.thumb_url}
+                    alt={`Slide ${s.order_index}`}
+                    loading="lazy"
+                    onError={onImageError}
+                  />
                 ) : (
                   <div className="noimg">no page image<br />(text only)</div>
                 )}

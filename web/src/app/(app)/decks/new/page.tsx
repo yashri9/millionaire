@@ -81,7 +81,7 @@ export default function NewDeckPage() {
             <div className="skeleton skeleton-text" style={{ width: 220, marginTop: 4 }} />
           </div>
         ) : (
-          <p className="muted">Drop a .pptx or .pdf here (max 25MB), or click to choose a file</p>
+          <p className="muted">Drop a .pptx or .pdf here (max 25MB). PDF is recommended for the most reliable slide previews.</p>
         )}
         <input
           ref={inputRef}

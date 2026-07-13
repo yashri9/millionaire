@@ -8,11 +8,13 @@ export function Lightbox({
   index,
   onClose,
   onStep,
+  onImageError,
 }: {
   slides: Slide[];
   index: number;
   onClose: () => void;
   onStep: (delta: number) => void;
+  onImageError?: () => void;
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -31,7 +33,7 @@ export function Lightbox({
     <div className="lightbox" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <button className="lb-close" onClick={onClose}>✕</button>
       <button className="lb-nav lb-prev" onClick={() => onStep(-1)}>◀</button>
-      <img src={slide.image_url} alt={`Slide ${slide.order_index}`} />
+      <img src={slide.image_url} alt={`Slide ${slide.order_index}`} onError={onImageError} />
       <button className="lb-nav lb-next" onClick={() => onStep(1)}>▶</button>
       <div className="lb-cap">Slide {slide.order_index} of {slides.length}</div>
     </div>

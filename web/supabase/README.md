@@ -9,6 +9,7 @@ migrations/
   0002_rls.sql    # Row Level Security: owner-only access; recipient path is service-role only
   0003_grants.sql # GRANT base table privileges to `authenticated` (RLS alone isn't enough — see file)
   0004_page_images.sql # adds slides.image_path / slides.thumb_path (rendered page images)
+  0005_deck_render_status.sql # adds decks.rendered + decks.render_warning
 ```
 
 ## Apply the migrations

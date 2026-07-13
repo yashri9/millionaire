@@ -63,7 +63,7 @@ web/
 | `prompts.ts` | `generateNarration`, `answerQuestion` (grounded + escalation) |
 | `email.ts` | Resend/Postmark interface + `dev` console fallback; `sendEscalationEmail` |
 | `parse.ts` | `parseDeck` — PPTX (unzip + presentation.xml order) / PDF (pdf-parse) text extraction; `validateUpload` (type/size, 25MB) |
-| `render.ts` | `renderPdfPages` (pdfjs-dist + @napi-rs/canvas, pure Node) + `convertToPdf` (LibreOffice, PPTX/PPT -> PDF) |
+| `render.ts` | `renderPdfPages` (pdfjs-dist + @napi-rs/canvas, pure Node, max 60 pages) + `convertToPdf` (LibreOffice, PPTX → PDF) |
 | `deckProcessor.ts` | `processDeckUpload` — orchestrates parse.ts + render.ts into one pipeline |
 | `storage.ts` | `uploadRenderedImages` / `signSlideImagePaths` — page images in the private decks bucket |
 | `jobs.ts` | Async job design (jobs table + poller) for parse/generate |
@@ -257,16 +257,16 @@ Browser-safe: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
 Build in this order — each step unblocks the next:
 
 1. **Supabase project + migrations** — apply `0001_init.sql` through
-   `0004_page_images.sql`; enable Email + Google auth; create the `decks`
+   `0004_page_images.sql` and `0005_deck_render_status.sql`; enable Email + Google auth; create the `decks`
    Storage bucket.
 2. **Auth** (§4.1–4.3) — signup/login/verify/reset; middleware gating; profile
    auto-create trigger already in migration.
 3. **Upload + parse + render** (§4.5) — done: `POST /api/decks` (Storage +
    deck row + inline `lib/deckProcessor` = `lib/parse` text + `lib/render`
    page images), retry via `POST /api/decks/:id/parse`, upload UI with
-   client-side validation. PPTX/PPT render via LibreOffice (`lib/render.ts`);
-   falls back to text-only if LibreOffice isn't found, same as the FastAPI
-   prototype. Not done: parsed-preview confirm step, no-text per-slide manual
+   client-side validation. PPTX render via LibreOffice (`lib/render.ts`); PDF
+   recommended for most reliable previews. Without LibreOffice, PPTX falls back
+   to text-only. Not done: parsed-preview confirm step, no-text per-slide manual
    entry, resume-slide.
 4. **Script gen + edit + rehearse + autosave** (§4.6–4.7) — done: the editor
    (`decks/[id]/edit`) is now the full Studio experience (parity with

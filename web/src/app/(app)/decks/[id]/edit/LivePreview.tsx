@@ -22,6 +22,7 @@ export function LivePreview({
   onPublish,
   onRevoke,
   publishing,
+  onImageError,
 }: {
   deck: Deck;
   slides: Slide[];
@@ -34,6 +35,7 @@ export function LivePreview({
   onPublish: () => Promise<void>;
   onRevoke: () => Promise<void>;
   publishing: boolean;
+  onImageError?: () => void;
 }) {
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -256,7 +258,7 @@ export function LivePreview({
             </div>
             <div className="stage-inner">
               {slide?.image_url ? (
-                <img src={slide.image_url} alt={`Slide ${slide.order_index}`} />
+                <img src={slide.image_url} alt={`Slide ${slide.order_index}`} onError={onImageError} />
               ) : (
                 <div className="textslide">
                   <h2>{slide?.title || `Slide ${slide?.order_index}`}</h2>

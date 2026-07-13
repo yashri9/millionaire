@@ -133,10 +133,23 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
   }
   if (!deck) return <p className="muted">{error ?? "Deck not found."}</p>;
 
-  const renderWarning =
-    slides.length > 0 && slides.every((s) => !s.image_url)
-      ? "No page images available — showing extracted text only. If this was a PPTX/PPT upload, installing LibreOffice on the server enables rendered slide images."
-      : null;
+  const renderWarning = deck.render_warning ?? null;
+
+  async function refreshSlides() {
+    const res = await fetch(`/api/decks/${id}`);
+    if (!res.ok) return;
+    const data: { slides: Slide[]; deck: Deck } = await res.json();
+    setSlides(data.slides);
+    setDeck(data.deck);
+  }
+
+  // Signed slide URLs expire after 1h — refresh before they go stale during long sessions.
+  useEffect(() => {
+    if (loading) return;
+    const interval = setInterval(refreshSlides, 45 * 60 * 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loading]);
 
   if (mode === "live") {
     return (
@@ -152,6 +165,7 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
         onBack={() => setMode("workspace")}
         onPublish={publish}
         onRevoke={revoke}
+        onImageError={refreshSlides}
       />
     );
   }
@@ -176,6 +190,7 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
         renderWarning={renderWarning}
         onOpenLightbox={setLightboxIndex}
         onEnterLive={() => setMode("live")}
+        onImageError={refreshSlides}
       />
       {lightboxIndex !== null && (
         <Lightbox
@@ -190,6 +205,7 @@ export default function EditDeckPage({ params }: { params: Promise<{ id: string 
               return n >= 0 && n < slides.length ? n : i;
             })
           }
+          onImageError={refreshSlides}
         />
       )}
     </>

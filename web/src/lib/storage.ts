@@ -8,12 +8,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { serverEnv } from "@/lib/env";
 import type { RenderedPage } from "@/lib/render";
 
+export type UploadedImagePaths = {
+  paths: Map<number, { image_path: string; thumb_path: string }>;
+  failedSlides: number[];
+};
+
 export async function uploadRenderedImages(
   storage: SupabaseClient,
   basePath: string,
   images: RenderedPage[],
-): Promise<Map<number, { image_path: string; thumb_path: string }>> {
-  const out = new Map<number, { image_path: string; thumb_path: string }>();
+): Promise<UploadedImagePaths> {
+  const paths = new Map<number, { image_path: string; thumb_path: string }>();
+  const failedSlides: number[] = [];
   await Promise.all(
     images.map(async (img) => {
       const imagePath = `${basePath}/pages/${img.order_index}.png`;
@@ -27,11 +33,19 @@ export async function uploadRenderedImages(
           .upload(thumbPath, img.thumbPng, { contentType: "image/png", upsert: true }),
       ]);
       if (!imageRes.error && !thumbRes.error) {
-        out.set(img.order_index, { image_path: imagePath, thumb_path: thumbPath });
+        paths.set(img.order_index, { image_path: imagePath, thumb_path: thumbPath });
+      } else {
+        failedSlides.push(img.order_index);
+        console.error(
+          `Slide ${img.order_index} image upload failed`,
+          imageRes.error?.message,
+          thumbRes.error?.message,
+        );
       }
     }),
   );
-  return out;
+  failedSlides.sort((a, b) => a - b);
+  return { paths, failedSlides };
 }
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour

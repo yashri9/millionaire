@@ -4,7 +4,7 @@ import "server-only";
  * render.ts — page image rendering (Studio parity with backend/server.py's
  * convert_to_pdf + render_pdf).
  *
- * PPTX/PPT -> PDF: shells out to LibreOffice headless, same approach the
+ * PPTX -> PDF: shells out to LibreOffice headless, same approach the
  * FastAPI prototype uses (there's no reliable pure-JS PPTX renderer — OOXML
  * shape/layout fidelity is a real rendering engine's job). If LibreOffice
  * isn't found, callers fall back to text-only slides (no images), matching
@@ -31,6 +31,7 @@ export type RenderedPage = {
 
 const PAGE_SCALE = 1.6; // full-page render quality
 const THUMB_SCALE = 0.45; // relative to PAGE_SCALE
+export const MAX_PAGES = 60;
 
 export async function findSoffice(): Promise<string | null> {
   if (serverEnv.sofficePath) {
@@ -69,15 +70,14 @@ export async function findSoffice(): Promise<string | null> {
   return null;
 }
 
-/** Converts PPTX/PPT bytes to PDF bytes via LibreOffice. Returns null if unavailable. */
-export async function convertToPdf(bytes: ArrayBuffer, filename: string): Promise<ArrayBuffer | null> {
+/** Converts PPTX bytes to PDF via LibreOffice. Returns null if unavailable. */
+export async function convertToPdf(bytes: ArrayBuffer, _filename: string): Promise<ArrayBuffer | null> {
   const soffice = await findSoffice();
   if (!soffice) return null;
 
   const dir = await mkdtemp(join(tmpdir(), "deck-agent-"));
   try {
-    const ext = filename.toLowerCase().endsWith(".ppt") ? ".ppt" : ".pptx";
-    const srcPath = join(dir, `source${ext}`);
+    const srcPath = join(dir, "source.pptx");
     await writeFile(srcPath, Buffer.from(bytes));
 
     await execFileAsync(
@@ -106,6 +106,13 @@ export async function renderPdfPages(pdfBytes: ArrayBuffer): Promise<RenderedPag
     cMapUrl: join(pdfjsDir, "cmaps") + "/",
     cMapPacked: true,
   }).promise;
+
+  if (doc.numPages > MAX_PAGES) {
+    await doc.cleanup();
+    throw new Error(
+      `This PDF has ${doc.numPages} pages — decks over ${MAX_PAGES} pages aren't supported yet. Try splitting it up.`,
+    );
+  }
 
   const pages: RenderedPage[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
