@@ -53,6 +53,8 @@ export function LivePreview({
   const dwellStart = useRef<number>(Date.now());
   const playingRef = useRef(playing);
   const slideIndexTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipPersistRef = useRef(true);
+  const persistAbortRef = useRef<AbortController | null>(null);
   playingRef.current = playing;
 
   const slide = slides[idx];
@@ -99,9 +101,14 @@ export function LivePreview({
   }
 
   useEffect(() => {
-    const start = Math.min(Math.max(deck.last_viewed_slide_index ?? 0, 0), Math.max(slides.length - 1, 0));
+    if (slides.length === 0) return;
+    const start = Math.min(Math.max(deck.last_viewed_slide_index ?? 0, 0), slides.length - 1);
     goLive(start, false);
+    const ready = setTimeout(() => {
+      skipPersistRef.current = false;
+    }, 0);
     return () => {
+      clearTimeout(ready);
       window.speechSynthesis.cancel();
       if (dwellTimer.current) clearInterval(dwellTimer.current);
     };
@@ -109,18 +116,34 @@ export function LivePreview({
   }, []);
 
   useEffect(() => {
+    if (skipPersistRef.current || !deck.id || slides.length === 0) return;
+
     if (slideIndexTimer.current) clearTimeout(slideIndexTimer.current);
+    persistAbortRef.current?.abort();
+
     slideIndexTimer.current = setTimeout(() => {
-      fetch(`/api/decks/${deck.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ last_viewed_slide_index: idx }),
-      });
+      const ac = new AbortController();
+      persistAbortRef.current = ac;
+      void (async () => {
+        try {
+          await fetch(`/api/decks/${deck.id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ last_viewed_slide_index: idx }),
+            signal: ac.signal,
+          });
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          // Non-critical resume position — ignore network failures.
+        }
+      })();
     }, 2000);
+
     return () => {
       if (slideIndexTimer.current) clearTimeout(slideIndexTimer.current);
+      persistAbortRef.current?.abort();
     };
-  }, [idx, deck.id]);
+  }, [idx, deck.id, slides.length]);
 
   function togglePlay() {
     if (playing) {
@@ -276,10 +299,15 @@ export function LivePreview({
                   src={slide.image_url}
                   alt={`Slide ${slide.order_index}`}
                   onError={async (e) => {
-                    const res = await fetch(`/api/decks/${deck.id}`);
-                    const data = await res.json();
-                    const fresh = data.slides.find((s: Slide) => s.id === slide.id)?.image_url;
-                    if (fresh) (e.target as HTMLImageElement).src = fresh;
+                    try {
+                      const res = await fetch(`/api/decks/${deck.id}`);
+                      if (!res.ok) return;
+                      const data = await res.json();
+                      const fresh = data.slides.find((s: Slide) => s.id === slide.id)?.image_url;
+                      if (fresh) (e.target as HTMLImageElement).src = fresh;
+                    } catch {
+                      // Ignore refresh failures — stale image is acceptable in preview.
+                    }
                   }}
                 />
               ) : (
