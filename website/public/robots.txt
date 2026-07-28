@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /d/
+Disallow: /deck/
+Disallow: /account
