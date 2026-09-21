@@ -13,7 +13,7 @@ import {
   validatePassword,
   validatePasswordConfirm,
 } from "@/lib/auth-errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { authRedirectUrl, isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/client";
 
 export function AuthLayout({ mode }: { mode: "login" | "signup" | "reset" }) {
@@ -139,7 +139,7 @@ export function AuthLayout({ mode }: { mode: "login" | "signup" | "reset" }) {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+      options: { emailRedirectTo: authRedirectUrl("/verify-email") },
     });
     setBusy(false);
     if (error) {
@@ -172,7 +172,7 @@ export function AuthLayout({ mode }: { mode: "login" | "signup" | "reset" }) {
       if (mode === "reset") {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(
           trimmedEmail,
-          { redirectTo: `${window.location.origin}/reset-password` },
+          { redirectTo: authRedirectUrl("/reset-password") },
         );
         if (resetError) {
           const mapped = mapAuthError(resetError, "reset");
@@ -198,7 +198,7 @@ export function AuthLayout({ mode }: { mode: "login" | "signup" | "reset" }) {
           password,
           options: {
             data: name.trim() ? { full_name: name.trim() } : undefined,
-            emailRedirectTo: `${window.location.origin}/verify-email`,
+            emailRedirectTo: authRedirectUrl("/verify-email"),
           },
         });
         if (signUpError) throw signUpError;
@@ -257,7 +257,7 @@ export function AuthLayout({ mode }: { mode: "login" | "signup" | "reset" }) {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/google/callback`,
+        redirectTo: authRedirectUrl("/api/auth/google/callback"),
         queryParams: { access_type: "offline", prompt: "consent" },
       },
     });

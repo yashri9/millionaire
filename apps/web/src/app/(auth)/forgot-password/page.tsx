@@ -6,7 +6,7 @@ import { useState } from "react";
 import { AuthCardShell } from "@/components/auth-card-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { mapAuthError, validateEmail } from "@/lib/auth-errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { authRedirectUrl, isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/client";
 
 const NEUTRAL_MSG =
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: authRedirectUrl("/reset-password"),
     });
     setSubmitting(false);
 

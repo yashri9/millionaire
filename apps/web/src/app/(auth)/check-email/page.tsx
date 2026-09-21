@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { AuthCardShell } from "@/components/auth-card-shell";
 import { Button } from "@/components/ui-kit";
 import { mapAuthError, validateEmail } from "@/lib/auth-errors";
-import { isSupabaseConfigured } from "@/lib/env";
+import { authRedirectUrl, isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/client";
 
 export default function CheckEmailPage() {
@@ -43,7 +43,7 @@ export default function CheckEmailPage() {
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+      options: { emailRedirectTo: authRedirectUrl("/verify-email") },
     });
     setSending(false);
     if (resendError) {

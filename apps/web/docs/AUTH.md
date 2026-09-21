@@ -6,7 +6,7 @@ Set in `apps/web/.env.local`:
 
 | Variable | Where used | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | redirects, emails | e.g. `http://localhost:3010` |
+| `NEXT_PUBLIC_APP_URL` | redirects, emails | local: `http://localhost:3010` · prod: `https://voxdeck.vercel.app` |
 | `NEXT_PUBLIC_SUPABASE_URL` | browser + middleware | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + middleware | Publishable/anon key only |
 | `SUPABASE_SERVICE_ROLE_KEY` | server routes only | Never ship to the client |
@@ -14,8 +14,13 @@ Set in `apps/web/.env.local`:
 ## Supabase Dashboard
 
 1. **Auth → URL configuration**
-   - Site URL: `http://localhost:3010` (prod: your domain)
+   - Site URL: `https://voxdeck.vercel.app` (local override: `http://localhost:3010`)
    - Redirect URLs:
+     - `https://voxdeck.vercel.app/**`
+     - `https://voxdeck.vercel.app/api/auth/google/callback`
+     - `https://voxdeck.vercel.app/reset-password`
+     - `https://voxdeck.vercel.app/verify-email`
+     - `http://localhost:3010/**`
      - `http://localhost:3010/api/auth/google/callback`
      - `http://localhost:3010/reset-password`
      - `http://localhost:3010/verify-email`

@@ -7,11 +7,23 @@
  * client component will leak secrets into the browser bundle — never do it.
  */
 
+const PRODUCTION_APP_URL = "https://voxdeck.vercel.app";
+const LOCAL_APP_URL = "http://localhost:3010";
+
 export const publicEnv = {
-  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  appUrl:
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.NODE_ENV === "production" ? PRODUCTION_APP_URL : LOCAL_APP_URL),
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
 };
+
+/** Absolute URL for email confirmation and OAuth callbacks. Never localhost in production. */
+export function authRedirectUrl(path: string): string {
+  const base = publicEnv.appUrl.replace(/\/$/, "");
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalized}`;
+}
 
 /** Server-only secrets. Do NOT import this from a "use client" file. */
 export const serverEnv = {
