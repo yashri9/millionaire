@@ -13,7 +13,6 @@ import { getPlaybackState } from "@/lib/playback-state";
 import {
   useSpeechNarration,
   usePrefetchNarration,
-  unlockNarrationAudio,
 } from "@/hooks/use-speech-narration";
 
 function fmt(s: number) {
@@ -29,9 +28,9 @@ export default function PreviewPage() {
   >([]);
   const [revision, setRevision] = useState(0);
   const [idx, setIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
   const deckFrameRef = useRef<HTMLDivElement>(null);
+  const narrationRef = useRef<{ pause: () => void; start: () => void; restart: () => void } | null>(null);
 
   useEffect(() => {
     const loaded = loadSlidesFor(id);
@@ -63,18 +62,16 @@ export default function PreviewPage() {
   const advanceOrStop = useCallback(() => {
     setIdx((i) => {
       if (i < DECK_SLIDES.length - 1) {
+        window.setTimeout(() => narrationRef.current?.start(), 40);
         return i + 1;
       }
-      setPlaying(false);
       return i;
     });
   }, [DECK_SLIDES.length]);
 
-  const narration = useSpeechNarration(
-    active?.script ?? "",
-    playing && Boolean(active?.script?.trim()),
-    advanceOrStop,
-  );
+  const narration = useSpeechNarration(active?.script ?? "", advanceOrStop);
+  narrationRef.current = narration;
+  const playing = narration.playing;
   const elapsed = narration.currentTime;
   const slideDur =
     narration.duration > 0 ? narration.duration : (active?.durationSec ?? 0);
@@ -164,7 +161,7 @@ export default function PreviewPage() {
             <div className="eyebrow">Rehearse</div>
             <h1 className="mt-1 font-display text-2xl font-bold leading-tight tracking-tight">
               Watch it end-to-end
-              <br />
+              <br className="hidden sm:block" />
               before you send.
             </h1>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
@@ -184,10 +181,10 @@ export default function PreviewPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setPlaying(false);
+                        narration.pause();
                         setIdx(i);
                       }}
-                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+                      className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left transition-colors ${
                         isActive ? "bg-foreground text-background" : "hover:bg-muted"
                       }`}
                     >
@@ -217,20 +214,20 @@ export default function PreviewPage() {
             </ul>
           </div>
 
-          <div className="rounded-2xl border-2 border-foreground bg-accent p-4 offset-shadow-sm">
+          <div className="hidden rounded-2xl border-2 border-foreground bg-accent p-4 offset-shadow-sm lg:block">
             <div className="eyebrow">Happy with the walkthrough?</div>
             <p className="mt-1.5 text-sm font-medium leading-snug">
               Publish a full-screen link anyone can watch.
             </p>
             <Link
               href={`/decks/${id}/publish`}
-              className="mt-3 flex w-full items-center justify-center rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
+              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
             >
               Publish → shareable link
             </Link>
             <Link
               href={`/decks/${id}/edit`}
-              className="mt-2 flex w-full items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+              className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
             >
               ← Back to editor
             </Link>
@@ -318,51 +315,50 @@ export default function PreviewPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setPlaying(false);
+                  narration.pause();
                   setIdx((i) => Math.max(0, i - 1));
                 }}
                 disabled={idx === 0}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-30"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-30"
               >
                 ◀ Prev
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  if (!playing) unlockNarrationAudio();
-                  setPlaying((p) => !p);
+                  if (playing) narration.pause();
+                  else narration.start();
                 }}
-                className="flex items-center gap-2 rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
+                className="flex min-h-11 items-center gap-2 rounded-full bg-foreground px-5 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
               >
                 {playing ? "❚❚ Pause" : "▶ Play"}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  unlockNarrationAudio();
-                  setPlaying(false);
+                  narration.pause();
                   setIdx(0);
-                  window.setTimeout(() => setPlaying(true), 50);
+                  window.setTimeout(() => narration.restart(), 40);
                 }}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
               >
                 ⟲ Restart
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setPlaying(false);
+                  narration.pause();
                   setIdx((i) => Math.min(DECK_SLIDES.length - 1, i + 1));
                 }}
                 disabled={idx === DECK_SLIDES.length - 1}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-30"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-30"
               >
                 Next ▶
               </button>
               <button
                 type="button"
                 onClick={() => (enlarged ? exitEnlarge() : enterEnlarge())}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
                 title={enlarged ? "Exit full screen" : "Show deck full screen"}
               >
                 {enlarged ? "↘ Shrink" : "⛶ Enlarge"}
@@ -395,6 +391,25 @@ export default function PreviewPage() {
                   : "fire between start & end words"
               }
             />
+          </div>
+
+          <div className="mt-6 rounded-2xl border-2 border-foreground bg-accent p-4 offset-shadow-sm lg:hidden">
+            <div className="eyebrow">Happy with the walkthrough?</div>
+            <p className="mt-1.5 text-sm font-medium leading-snug">
+              Publish a full-screen link anyone can watch.
+            </p>
+            <Link
+              href={`/decks/${id}/publish`}
+              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background"
+            >
+              Publish → shareable link
+            </Link>
+            <Link
+              href={`/decks/${id}/edit`}
+              className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold"
+            >
+              ← Back to editor
+            </Link>
           </div>
         </section>
       </div>

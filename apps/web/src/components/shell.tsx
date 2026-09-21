@@ -105,7 +105,7 @@ export function TopBar({
               </Link>
               <button
                 type="button"
-                className="-mr-2 flex h-10 w-10 items-center justify-center lg:hidden"
+                className="-mr-2 flex h-11 w-11 items-center justify-center lg:hidden"
                 aria-expanded={menuOpen}
                 aria-label={menuOpen ? "Close menu" : "Open menu"}
                 onClick={() => setMenuOpen((open) => !open)}
@@ -122,7 +122,16 @@ export function TopBar({
                 Account
               </Link>
               <LogoutButton className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex" />
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
+              <button
+                type="button"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background md:hidden"
+                aria-expanded={menuOpen}
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                YM
+              </button>
+              <div className="hidden h-8 w-8 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background md:flex">
                 YM
               </div>
             </>
@@ -136,7 +145,7 @@ export function TopBar({
               <a
                 key={l.href}
                 href={l.href}
-                className="py-1 text-lg font-semibold"
+                className="min-h-11 py-2 text-lg font-semibold"
                 onClick={() => setMenuOpen(false)}
               >
                 {l.label}
@@ -158,6 +167,22 @@ export function TopBar({
                 Get started
               </Link>
             </div>
+          </div>
+        </div>
+      )}
+      {variant === "app" && menuOpen && (
+        <div className="border-t border-border px-[5%] py-6 md:hidden">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3">
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center text-lg font-semibold" onClick={() => setMenuOpen(false)}>
+              Decks
+            </Link>
+            <Link href="/decks/new" className="inline-flex min-h-11 items-center text-lg font-semibold" onClick={() => setMenuOpen(false)}>
+              New deck
+            </Link>
+            <Link href="/account" className="inline-flex min-h-11 items-center text-lg font-semibold" onClick={() => setMenuOpen(false)}>
+              Account
+            </Link>
+            <LogoutButton className="inline-flex min-h-11 items-center justify-start text-lg font-semibold" />
           </div>
         </div>
       )}

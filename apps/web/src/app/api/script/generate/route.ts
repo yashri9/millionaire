@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth";
 import { handle, ApiError } from "@/lib/http";
 import { generateNarrationForDeck } from "@/lib/prompts";
 import { providerStatus } from "@/lib/llm";
@@ -13,6 +14,8 @@ export const maxDuration = 300;
  */
 export async function POST(req: Request) {
   return handle(async () => {
+    const user = await requireUser();
+    void user;
     const body = (await req.json().catch(() => ({}))) as {
       slides?: SlideContent[];
       companyName?: string;

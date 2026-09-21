@@ -11,10 +11,11 @@ import { getAllHighlights, useHighlights } from "@/lib/highlight-store";
 import { publishDeckSnapshot, getShareTokenForDeck } from "@/lib/share-store";
 import { SlidePlaybackStage } from "@/components/highlights/SlidePlaybackStage";
 import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
-import { useSpeechNarration, usePrefetchNarration, unlockNarrationAudio } from "@/hooks/use-speech-narration";
+import { useSpeechNarration, usePrefetchNarration } from "@/hooks/use-speech-narration";
 import { getCachedNarration } from "@/lib/tts-cache";
 import { useVoiceSettings } from "@/lib/voice-store";
 import { getPreset, type DeckVoiceSettings } from "@/lib/voice-settings";
+import { publicEnv } from "@/lib/env";
 
 type Access = "anyone" | "email" | "password";
 
@@ -48,8 +49,8 @@ export default function PublishPage() {
   const [deckTitle, setDeckTitle] = useState("Untitled deck");
   const [slides, setSlides] = useState<ReturnType<typeof loadSlidesFor>["slides"]>([]);
   const [idx, setIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
   const [access, setAccess] = useState<Access>("anyone");
+  const narrationRef = useRef<{ pause: () => void; start: () => void; restart: () => void } | null>(null);
   const [gatedEmail, setGatedEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captureEmail, setCaptureEmail] = useState(true);
@@ -89,7 +90,7 @@ export default function PublishPage() {
   const priorDur = slides
     .slice(0, idx)
     .reduce((a, s) => a + slideAudioSec(s.script ?? "", s.durationSec ?? 0, voice), 0);
-  const shareUrl = `voxdeck.app/d/${shareToken || customSlug || "your-deck"}`;
+  const shareHost = publicEnv.appUrl.replace(/^https?:\/\//, "");
   const hasCover = Boolean(slides[0]?.thumbnail);
   const checks: Check[] = [
     {
@@ -124,18 +125,16 @@ export default function PublishPage() {
   const advanceOrStop = useCallback(() => {
     setIdx((i) => {
       if (i < slides.length - 1) {
+        window.setTimeout(() => narrationRef.current?.start(), 40);
         return i + 1;
       }
-      setPlaying(false);
       return i;
     });
   }, [slides.length]);
 
-  const narration = useSpeechNarration(
-    active?.script ?? "",
-    playing && Boolean(active?.script?.trim()),
-    advanceOrStop,
-  );
+  const narration = useSpeechNarration(active?.script ?? "", advanceOrStop);
+  narrationRef.current = narration;
+  const playing = narration.playing;
   const elapsed = narration.currentTime;
   const slideDur =
     narration.duration > 0 ? narration.duration : (active?.durationSec ?? 0);
@@ -209,14 +208,51 @@ export default function PublishPage() {
 
     setPublishing(true);
     setProgress(0);
-    const steps = [
-      { at: 200, p: 30 },
-      { at: 600, p: 65 },
-      { at: 1000, p: 100 },
-    ];
-    steps.forEach((s) => window.setTimeout(() => setProgress(s.p), s.at));
-    window.setTimeout(() => {
+    void (async () => {
       try {
+        setProgress(30);
+        // Sync local script into server draft when this deck exists remotely.
+        const remote = await fetch(`/api/decks/${id}`);
+        if (remote.ok) {
+          const payload = (await remote.json()) as {
+            slides?: { id: string; order_index: number }[];
+          };
+          const narrationRows = (payload.slides ?? []).map((s) => {
+            const local = slides.find((x) => Number(x.n) === s.order_index);
+            return { slide_id: s.id, text: local?.script ?? "" };
+          });
+          if (narrationRows.length > 0) {
+            await fetch(`/api/decks/${id}/script`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ narration: narrationRows }),
+            });
+          }
+          setProgress(65);
+          const pub = await fetch(`/api/decks/${id}/publish`, { method: "POST" });
+          const data = (await pub.json().catch(() => ({}))) as {
+            token?: string;
+            url?: string;
+            error?: string;
+          };
+          if (!pub.ok || !data.token) {
+            throw new Error(data.error || "Publishing failed on the server.");
+          }
+          const share = publishDeckSnapshot({
+            deck: { ...deck, highlights: highlightsMap },
+            highlights: highlightsMap,
+            token: data.token,
+          });
+          setShareToken(share.token);
+          setCustomSlug(share.token);
+          setProgress(100);
+          setPublishing(false);
+          setPublished(true);
+          return;
+        }
+
+        // Fallback: local-only publish when server deck is unavailable.
+        setProgress(100);
         const share = publishDeckSnapshot({
           deck: { ...deck, highlights: highlightsMap },
           highlights: highlightsMap,
@@ -230,13 +266,25 @@ export default function PublishPage() {
         setPublishing(false);
         setPublishError(e instanceof Error ? e.message : "Publishing failed.");
       }
-    }, 1100);
+    })();
   }
 
   function copyLink() {
-    void navigator.clipboard?.writeText(`https://voxdeck.app/d/${shareToken || customSlug}`);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
+    const url = `${publicEnv.appUrl}/d/${shareToken || customSlug}`;
+    void (async () => {
+      try {
+        await navigator.clipboard?.writeText(url);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    })();
   }
 
   return (
@@ -489,7 +537,7 @@ export default function PublishPage() {
             </div>
             <div className="flex items-stretch overflow-hidden rounded-xl border-2 border-foreground">
               <span className="flex shrink-0 items-center bg-muted px-2 font-mono text-[10px] text-muted-foreground">
-                voxdeck.app/d/
+                {shareHost}/d/
               </span>
               <input
                 value={customSlug}
@@ -597,44 +645,43 @@ export default function PublishPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setPlaying(false);
+                  narration.pause();
                   setIdx((i) => Math.max(0, i - 1));
                 }}
                 disabled={idx === 0}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-30"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-30"
               >
                 ◀ Prev
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  if (!playing) unlockNarrationAudio();
-                  setPlaying((p) => !p);
+                  if (playing) narration.pause();
+                  else narration.start();
                 }}
-                className="flex items-center gap-2 rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
+                className="flex min-h-11 items-center gap-2 rounded-full bg-foreground px-5 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
               >
                 {playing ? "❚❚ Pause" : "▶ Play"}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  unlockNarrationAudio();
-                  setPlaying(false);
+                  narration.pause();
                   setIdx(0);
-                  window.setTimeout(() => setPlaying(true), 50);
+                  window.setTimeout(() => narration.restart(), 40);
                 }}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
               >
                 ⟲ Restart
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setPlaying(false);
+                  narration.pause();
                   setIdx((i) => Math.min(slides.length - 1, i + 1));
                 }}
                 disabled={idx >= slides.length - 1}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-30"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-30"
               >
                 Next ▶
               </button>

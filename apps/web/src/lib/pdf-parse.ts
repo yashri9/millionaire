@@ -11,7 +11,7 @@
  */
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
 import type { DeckSlide, SlideWord } from "@/lib/deck-store";
-import { ocrCanvas, terminateOcr } from "@/lib/ocr";
+import { needsOcr, ocrCanvas } from "@/lib/ocr";
 import {
   extractiveFallback,
   detectChartFromOcr,
@@ -265,7 +265,9 @@ export async function parsePdfToSlides(
       }
       pageText = pageText.trim();
 
-      const targetWidth = 1200;
+      // 600px / 0.62 JPEG keeps previews readable while staying under Safari's
+      // ~5MB localStorage budget. IndexedDB + Blob previews is the long-term path.
+      const targetWidth = 600;
       const scale = targetWidth / pageW;
       const scaled = page.getViewport({ scale });
       const canvas = document.createElement("canvas");
@@ -280,36 +282,33 @@ export async function parsePdfToSlides(
       }
       await page.render({ canvasContext: ctx, viewport: scaled, canvas })
         .promise;
-      const thumbnail = canvas.toDataURL("image/jpeg", 0.78);
+      const thumbnail = canvas.toDataURL("image/jpeg", 0.62);
 
-      // Always OCR and cross-check with the text layer. On mismatch, prefer OCR
-      // only when OCR is usable. Graph-guide is allowed only if OCR saw a chart.
       let resolvedText = pageText;
       let usedOcr = false;
       let extractionMethod: "text-layer" | "ocr" = "text-layer";
       let ocrDetectedChart = false;
-      onProgress?.({ phase: "ocr", current: p, total });
-      try {
-        const ocrText = await ocrCanvas(canvas);
-        ocrDetectedChart = detectChartFromOcr(ocrText);
-        const reconciled = reconcileTextAndOcr(pageText, ocrText);
-        resolvedText = reconciled.text;
-        extractionMethod = reconciled.extractionMethod;
-        usedOcr = reconciled.extractionMethod === "ocr";
-        if (process.env.NODE_ENV !== "production" && reconciled.mismatched) {
-          console.info("[pdf-parse] text/OCR mismatch — preferring OCR", {
-            pageIndex: i,
-            overlapRatio: reconciled.overlapRatio,
-            textLayerChars: reconciled.textLayerChars,
-            ocrChars: reconciled.ocrChars,
-            ocrDetectedChart,
-          });
+      const t0 = performance.now();
+      if (needsOcr(pageText)) {
+        onProgress?.({ phase: "ocr", current: p, total });
+        try {
+          const ocrText = await ocrCanvas(canvas);
+          ocrDetectedChart = detectChartFromOcr(ocrText);
+          const reconciled = reconcileTextAndOcr(pageText, ocrText);
+          resolvedText = reconciled.text;
+          extractionMethod = reconciled.extractionMethod;
+          usedOcr = reconciled.extractionMethod === "ocr";
+        } catch (err) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[pdf-parse] OCR failed for page", p, err);
+          }
         }
-      } catch (err) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[pdf-parse] OCR failed for page", p, err);
-        }
-        // Keep text layer if OCR fails.
+      } else if (process.env.NODE_ENV !== "production") {
+        console.info("[pdf-parse] skip OCR — readable text layer", {
+          pageIndex: i,
+          chars: pageText.length,
+          ms: Math.round(performance.now() - t0),
+        });
       }
 
       pageTextSlots[i] = resolvedText;
@@ -376,6 +375,6 @@ export async function parsePdfToSlides(
     const filename = file.name.replace(/\.pdf$/i, "");
     return { title: filename || "Untitled deck", slides };
   } finally {
-    await terminateOcr();
+    // Keep the OCR worker warm between imports; it is cheap to reuse.
   }
 }

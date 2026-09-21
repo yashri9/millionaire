@@ -1,5 +1,7 @@
 import { handle } from "@/lib/http";
-import { getPublishedDeckByToken } from "@/lib/recipient";
+import { createSession, getPublishedDeckByToken } from "@/lib/recipient";
+import { createServiceClient } from "@/lib/supabase/server";
+import { signSlideImagePaths } from "@/lib/storage";
 import { NextResponse } from "next/server";
 
 type Ctx = { params: Promise<{ token: string }> };
@@ -17,6 +19,25 @@ export async function GET(_req: Request, { params }: Ctx) {
     if (!result.ok) {
       return NextResponse.json({ active: false, reason: result.reason }, { status: 404 });
     }
-    return NextResponse.json({ active: true, deck: result.deck });
+    const sessionId = await createSession(result.deck.shareId);
+    const signed = await signSlideImagePaths(
+      createServiceClient(),
+      result.deck.slides.map((s) => ({
+        ...s,
+        image_path: s.image_path,
+        thumb_path: s.thumb_path,
+      })),
+    );
+    return NextResponse.json({
+      active: true,
+      sessionId,
+      deck: {
+        ...result.deck,
+        slides: signed.map((s) => ({
+          ...s,
+          thumbnail: s.thumb_url || s.image_url,
+        })),
+      },
+    });
   });
 }

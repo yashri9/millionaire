@@ -20,6 +20,10 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  if (/\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|mjs|map|woff|woff2|ttf|eot)$/i.test(path)) {
+    return response;
+  }
+
   const isAuthPage =
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
@@ -31,11 +35,6 @@ export async function updateSession(request: NextRequest) {
 
   const isRecipient =
     path.startsWith("/d/") || path.startsWith("/api/d/");
-
-  /** Script APIs are called from the studio; never HTML-redirect them. */
-  const isScriptApi = path.startsWith("/api/script/");
-  /** TTS is server-only ElevenLabs; same open access as script APIs in local studio. */
-  const isTtsApi = path.startsWith("/api/tts/");
 
   const isStudioRoute =
     path.startsWith("/dashboard") ||
@@ -86,10 +85,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Script / TTS APIs are server-only calls used by the localStorage studio.
-  // Auth is not required here — secrets never leave the server. Blocking with
-  // 401 caused silent extractive drafts when the session cookie was missing.
-  if (isScriptApi || isTtsApi) {
+  if (path.startsWith("/api/") && !isRecipient && !isAuthPage) {
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
     return response;
   }
 

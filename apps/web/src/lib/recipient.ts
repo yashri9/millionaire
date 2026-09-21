@@ -21,7 +21,15 @@ export type RecipientDeck = {
   scriptVersionId: string;
   repName: string;
   title: string;
-  slides: { index: number; title: string; bullets: string[]; narration: string; text: string }[];
+  slides: {
+    index: number;
+    title: string;
+    bullets: string[];
+    narration: string;
+    text: string;
+    image_path: string | null;
+    thumb_path: string | null;
+  }[];
 };
 
 export type RecipientLookup =
@@ -52,7 +60,7 @@ export async function getPublishedDeckByToken(token: string): Promise<RecipientL
 
   const [{ data: deck }, { data: slides }, { data: version }] = await Promise.all([
     db.from("decks").select("id, title").eq("id", share.deck_id).single(),
-    db.from("slides").select("order_index, title, bullets, id").eq("deck_id", share.deck_id).order("order_index"),
+    db.from("slides").select("order_index, title, bullets, id, image_path, thumb_path").eq("deck_id", share.deck_id).order("order_index"),
     db.from("script_versions").select("narration").eq("id", share.script_version_id).single(),
   ]);
 
@@ -72,14 +80,14 @@ export async function getPublishedDeckByToken(token: string): Promise<RecipientL
       // rep_name lives on the sender profile in the real build; TODO wire it.
       repName: "the rep",
       title: deck.title,
-      slides: slides.map((s: { order_index: number; title: string; bullets: string[]; id: string }) => ({
+      slides: slides.map((s: { order_index: number; title: string; bullets: string[]; id: string; image_path: string | null; thumb_path: string | null }) => ({
         index: s.order_index,
         title: s.title,
         bullets: s.bullets ?? [],
         narration: narrationBySlide.get(s.id) ?? "",
-        // Grounds answerQuestion() (lib/prompts.ts reads SlideInput.text) —
-        // without this, Q&A was answering from empty per-slide content.
         text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
+        image_path: s.image_path,
+        thumb_path: s.thumb_path,
       })),
     },
   };

@@ -64,7 +64,12 @@ type Slide = {
   generationMethod: GenerationMethod;
   lowConfidenceFlags: string[];
 };
-type RailTool = "slides" | "design" | "voice" | "avatar" | "more";
+type RailTool = "slides" | "voice";
+
+const RAIL: { id: RailTool; label: string; icon: string }[] = [
+  { id: "slides", label: "Slides", icon: "▦" },
+  { id: "voice", label: "Voice", icon: "♪" },
+];
 
 function fmtDur(sec: number) {
   return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
@@ -113,14 +118,6 @@ const statusLabel: Record<SlideStatus, string> = {
   failed: "Failed",
 };
 
-const RAIL: { id: RailTool; label: string; icon: string }[] = [
-  { id: "slides", label: "Slides", icon: "▦" },
-  { id: "design", label: "Design", icon: "◇" },
-  { id: "voice", label: "Voice", icon: "♪" },
-  { id: "avatar", label: "Avatar", icon: "◎" },
-  { id: "more", label: "More", icon: "···" },
-];
-
 export default function EditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -131,8 +128,13 @@ export default function EditorPage() {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [slides, setSlides] = useState<Slide[]>([]);
   const [selected, setSelected] = useState<string>("01");
-  const [playing, setPlaying] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const narrationRef = useRef<{
+    pause: () => void;
+    start: () => void;
+    restart: () => void;
+    playing: boolean;
+  } | null>(null);
   const [navBusy, setNavBusy] = useState(false);
   const [narrationOpen, setNarrationOpen] = useState(true);
   const [railTool, setRailTool] = useState<RailTool | null>(null);
@@ -211,7 +213,7 @@ export default function EditorPage() {
 
   /** Pause narration and freeze the slide — required before any highlight edit flow. */
   function pauseForHighlightEdit() {
-    setPlaying(false);
+    narrationRef.current?.pause();
   }
 
   function onTextareaSelect() {
@@ -311,24 +313,25 @@ export default function EditorPage() {
   const spokenSec = Math.max(3, Math.round((wordCount / 155) * 60));
 
   const advanceAfterSpeech = useCallback(() => {
-    // Never advance while the user is configuring a highlight
     if (highlightEditingRef.current) {
-      setPlaying(false);
+      narrationRef.current?.pause();
       return;
     }
     const i = slides.findIndex((s) => s.n === selected);
     if (i >= 0 && i < slides.length - 1) {
       setSelected(slides[i + 1].n);
+      window.setTimeout(() => narrationRef.current?.start(), 40);
       return;
     }
-    setPlaying(false);
+    narrationRef.current?.pause();
   }, [slides, selected]);
 
   const narration = useSpeechNarration(
-    active.script,
-    playing && Boolean(active.script.trim()) && !highlightEditing,
+    highlightEditing ? "" : active.script,
     advanceAfterSpeech,
   );
+  narrationRef.current = narration;
+  const playing = narration.playing;
   const elapsed = narration.currentTime;
   const spokenClock = narration.duration > 0 ? narration.duration : spokenSec;
 
@@ -477,7 +480,8 @@ export default function EditorPage() {
       if (inField) return;
       if (e.code === "Space") {
         e.preventDefault();
-        setPlaying((p) => !p);
+        if (narration.playing) narration.pause();
+        else narration.start();
       } else if (e.key === "j" || e.key === "ArrowRight") step(1);
       else if (e.key === "k" || e.key === "ArrowLeft") step(-1);
       else if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -504,28 +508,10 @@ export default function EditorPage() {
                 {slides.length} slides · rev {autosave.savedRevision}
               </div>
             </div>
-            <div className="ml-1 hidden items-center gap-0.5 sm:flex">
-              <button
-                type="button"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                title="Undo"
-                aria-label="Undo"
-              >
-                ↶
-              </button>
-              <button
-                type="button"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                title="Redo"
-                aria-label="Redo"
-              >
-                ↷
-              </button>
-            </div>
           </div>
 
-          {/* Single mode switch — Home / Edit / Preview */}
-          <div className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-full bg-muted p-1">
+          {/* Single mode switch — stacks under title on narrow screens */}
+          <div className="absolute left-1/2 hidden -translate-x-1/2 items-center rounded-full bg-muted p-1 sm:flex">
             <Link
               href="/dashboard"
               className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -641,9 +627,6 @@ export default function EditorPage() {
                     currentScript={active.script}
                   />
                 )}
-                {railTool === "avatar" && <AvatarPanel />}
-                {railTool === "design" && <DesignPanel />}
-                {railTool === "more" && <MorePanel />}
               </div>
             </aside>
           )}
@@ -776,7 +759,7 @@ export default function EditorPage() {
                   <button
                     type="button"
                     onClick={() => step(-1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] hover:bg-muted"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[11px] hover:bg-muted"
                     aria-label="Previous slide"
                   >
                     ⏮
@@ -784,10 +767,10 @@ export default function EditorPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!playing) unlockNarrationAudio();
-                      setPlaying((p) => !p);
+                      if (playing) narration.pause();
+                      else narration.start();
                     }}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-[10px] text-background"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-[10px] text-background"
                     aria-label={playing ? "Pause narration" : "Play narration"}
                   >
                     {playing ? "❚❚" : "▶"}
@@ -795,7 +778,7 @@ export default function EditorPage() {
                   <button
                     type="button"
                     onClick={() => step(1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] hover:bg-muted"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[11px] hover:bg-muted"
                     aria-label="Next slide"
                   >
                     ⏭
@@ -860,11 +843,8 @@ export default function EditorPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setPlaying(false);
-                          window.setTimeout(() => setPlaying(true), 40);
-                        }}
-                        className="h-6 rounded-full px-2 text-[10px] font-medium hover:bg-muted"
+                        onClick={() => narration.restart()}
+                        className="min-h-11 rounded-full px-3 text-[10px] font-medium hover:bg-muted"
                       >
                         Replay
                       </button>

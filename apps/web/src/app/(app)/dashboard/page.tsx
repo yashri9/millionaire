@@ -26,8 +26,35 @@ export default function DashboardPage() {
   const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(() => {
-    setDecks(listDecks());
-    setLoaded(true);
+    const local = listDecks();
+    void fetch("/api/decks")
+      .then(async (res) => {
+        if (!res.ok) {
+          setDecks(local);
+          return;
+        }
+        const data = (await res.json()) as {
+          decks?: {
+            id: string;
+            title: string;
+            created_at: string;
+            updated_at?: string;
+          }[];
+        };
+        const remote: DeckIndexEntry[] = (data.decks ?? []).map((d) => {
+          const loc = local.find((l) => l.id === d.id);
+          return {
+            id: d.id,
+            title: d.title,
+            createdAt: Date.parse(d.updated_at || d.created_at) || Date.now(),
+            count: loc?.count ?? 0,
+          };
+        });
+        const remoteIds = new Set(remote.map((d) => d.id));
+        setDecks([...remote, ...local.filter((d) => !remoteIds.has(d.id))]);
+      })
+      .catch(() => setDecks(local))
+      .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -64,7 +91,7 @@ export default function DashboardPage() {
             {[
               { l: "Total decks", v: String(decks.length) },
               { l: "Slides", v: String(decks.reduce((n, d) => n + d.count, 0)) },
-              { l: "Storage", v: "Browser" },
+              { l: "Storage", v: "Workspace" },
             ].map((s) => (
               <div key={s.l} className="bg-background p-4 sm:p-6">
                 <div className="eyebrow mb-3">{s.l}</div>
@@ -117,7 +144,10 @@ export default function DashboardPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      if (confirm(`Delete "${d.title}"?`)) deleteDeck(d.id);
+                      if (!confirm(`Delete "${d.title}"?`)) return;
+                      void fetch(`/api/decks/${d.id}`, { method: "DELETE" }).finally(() => {
+                        deleteDeck(d.id);
+                      });
                     }}
                   >
                     Delete

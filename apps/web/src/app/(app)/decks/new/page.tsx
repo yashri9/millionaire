@@ -11,7 +11,14 @@ import {
   validatePdfFile,
   type ParseProgress,
 } from "@/lib/pdf-parse";
-import { saveDeck, newDeckId } from "@/lib/deck-store";
+import {
+  saveDeck,
+  newDeckId,
+  DeckStorageError,
+  isQuotaExceededError,
+  DECK_SAVE_QUOTA_MESSAGE,
+} from "@/lib/deck-store";
+import { uploadAndProcessPdf } from "@/lib/studio-api";
 
 type UploadState =
   | "idle"
@@ -21,7 +28,8 @@ type UploadState =
   | "invalid_file"
   | "file_too_large"
   | "parse_error"
-  | "unsupported_pdf";
+  | "unsupported_pdf"
+  | "save_error";
 
 export default function NewDeckPage() {
   const [state, setState] = useState<UploadState>("idle");
@@ -67,12 +75,33 @@ export default function NewDeckPage() {
 
     setState("parsing");
     setProgressPhase("upload");
+    const onProgress = (p: ParseProgress) => {
+      if (runId !== runIdRef.current) return;
+      setProgress(p);
+      setProgressPhase(p.phase);
+    };
     try {
-      const { title, slides: parsedSlides } = await parsePdfToSlides(file, (p) => {
+      try {
+        const remote = await uploadAndProcessPdf(file, onProgress);
         if (runId !== runIdRef.current) return;
-        setProgress(p);
-        setProgressPhase(p.phase);
-      });
+        saveDeck(remote);
+        setState("success");
+        setTimeout(() => {
+          if (runId === runIdRef.current) router.push(`/decks/${remote.id}/edit`);
+        }, 350);
+        return;
+      } catch (remoteErr) {
+        const msg = remoteErr instanceof Error ? remoteErr.message : "";
+        const fallback =
+          /not authenticated|sign in|401/i.test(msg) ||
+          /could not start upload/i.test(msg);
+        if (!fallback) throw remoteErr;
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[new-deck] server upload unavailable, parsing locally", remoteErr);
+        }
+      }
+
+      const { title, slides: parsedSlides } = await parsePdfToSlides(file, onProgress);
       if (runId !== runIdRef.current) return;
       if (!parsedSlides.length) {
         setState("parse_error");
@@ -152,15 +181,25 @@ export default function NewDeckPage() {
 
       setProgress({ phase: "narrate", current: slides.length, total: slides.length });
       const id = newDeckId();
-      saveDeck({
-        id,
-        title,
-        slides,
-        createdAt: Date.now(),
-        revision: 0,
-        updatedAt: Date.now(),
-        highlights: {},
-      });
+      try {
+        saveDeck({
+          id,
+          title,
+          slides,
+          createdAt: Date.now(),
+          revision: 0,
+          updatedAt: Date.now(),
+          highlights: {},
+        });
+      } catch (err) {
+        if (err instanceof DeckStorageError || isQuotaExceededError(err)) {
+          setState("save_error");
+          setError(DECK_SAVE_QUOTA_MESSAGE);
+          busyRef.current = false;
+          return;
+        }
+        throw err;
+      }
       setState("success");
       setTimeout(() => {
         if (runId === runIdRef.current) router.push(`/decks/${id}/edit`);
@@ -169,6 +208,12 @@ export default function NewDeckPage() {
       if (runId !== runIdRef.current) return;
       if (process.env.NODE_ENV !== "production") {
         console.error("[new-deck] parse failed", err);
+      }
+      if (err instanceof DeckStorageError || isQuotaExceededError(err)) {
+        setState("save_error");
+        setError(DECK_SAVE_QUOTA_MESSAGE);
+        busyRef.current = false;
+        return;
       }
       const message = userMessageForParseError(err);
       const lower = message.toLowerCase();
@@ -196,7 +241,8 @@ export default function NewDeckPage() {
     state === "invalid_file" ||
     state === "file_too_large" ||
     state === "parse_error" ||
-    state === "unsupported_pdf";
+    state === "unsupported_pdf" ||
+    state === "save_error";
 
   const pct =
     progressPhase === "narrate"
@@ -264,7 +310,7 @@ export default function NewDeckPage() {
                     click to browse
                   </span>
                 </div>
-                <div className="eyebrow">PDF · 25MB max · parses locally</div>
+                <div className="eyebrow">PDF · 25MB max · securely processed in your workspace</div>
               </div>
             </label>
 
@@ -274,7 +320,9 @@ export default function NewDeckPage() {
                 className="mt-6 rounded-2xl border border-danger/40 bg-danger/10 p-5"
               >
                 <div className="font-display text-lg font-bold tracking-tight text-foreground">
-                  PDF couldn&apos;t be processed
+                  {state === "save_error"
+                    ? "Deck couldn't be saved"
+                    : "PDF couldn't be processed"}
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{error}</p>
                 {filename ? (

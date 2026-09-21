@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth";
 import { handle, ApiError } from "@/lib/http";
 import { refineNarrationLine } from "@/lib/prompts";
 import { LLMError, providerStatus } from "@/lib/llm";
@@ -13,6 +14,7 @@ import {
  */
 export async function POST(req: Request) {
   return handle(async () => {
+    await requireUser();
     const body = (await req.json().catch(() => ({}))) as {
       mode?: RefineMode;
       currentLine?: string;

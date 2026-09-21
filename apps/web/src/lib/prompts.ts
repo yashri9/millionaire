@@ -293,28 +293,25 @@ export async function generateNarrationForDeck(
   deckContext?: { companyName?: string; deckPurpose?: string },
 ): Promise<NarrationResult[]> {
   const byNo = [...slides].sort((a, b) => a.slideNo - b.slideNo);
-  const results: NarrationResult[] = [];
-  let previousNarration: string | null = null;
-
-  for (let i = 0; i < byNo.length; i++) {
-    const slide = byNo[i];
-    const prevTitle = i > 0 ? byNo[i - 1].titleText : null;
-    const nextTitle = i < byNo.length - 1 ? byNo[i + 1].titleText : null;
-    const result = await generateNarrationForSlide(slide, {
-      deckContext,
-      previousNarration,
-      prevTitle,
-      nextTitle,
-    });
-    results.push(result);
-    previousNarration = result.narration;
-    // Pace calls like the eval pipeline to reduce Groq 429s on long decks.
-    if (i < byNo.length - 1) {
-      await new Promise((r) => setTimeout(r, 1200));
+  const out: NarrationResult[] = new Array(byNo.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < byNo.length) {
+      const i = cursor++;
+      const slide = byNo[i];
+      const prevTitle = i > 0 ? byNo[i - 1].titleText : null;
+      const nextTitle = i < byNo.length - 1 ? byNo[i + 1].titleText : null;
+      const prevNarr = i > 0 && out[i - 1] ? out[i - 1]!.narration : null;
+      out[i] = await generateNarrationForSlide(slide, {
+        deckContext,
+        previousNarration: prevNarr,
+        prevTitle,
+        nextTitle,
+      });
     }
   }
-
-  return results;
+  await Promise.all([worker(), worker()]);
+  return out;
 }
 
 export async function refineNarrationLine(opts: {

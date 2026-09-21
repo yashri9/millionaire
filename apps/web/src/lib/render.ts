@@ -29,8 +29,8 @@ export type RenderedPage = {
   thumbPng: Buffer;
 };
 
-const PAGE_SCALE = 1.6; // full-page render quality
-const THUMB_SCALE = 0.45; // relative to PAGE_SCALE
+const TARGET_WIDTH = 720;
+const THUMB_SCALE = 0.45;
 export const MAX_PAGES = 60;
 
 export async function findSoffice(): Promise<string | null> {
@@ -117,8 +117,9 @@ export async function renderPdfPages(pdfBytes: ArrayBuffer): Promise<RenderedPag
   const pages: RenderedPage[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
-
-    const fullViewport = page.getViewport({ scale: PAGE_SCALE });
+    const base = page.getViewport({ scale: 1 });
+    const scale = TARGET_WIDTH / Math.max(1, base.width);
+    const fullViewport = page.getViewport({ scale });
     const fullCanvas = createCanvas(fullViewport.width, fullViewport.height);
     await page.render({
       canvas: null,
@@ -126,7 +127,7 @@ export async function renderPdfPages(pdfBytes: ArrayBuffer): Promise<RenderedPag
       viewport: fullViewport,
     }).promise;
 
-    const thumbViewport = page.getViewport({ scale: PAGE_SCALE * THUMB_SCALE });
+    const thumbViewport = page.getViewport({ scale: scale * THUMB_SCALE });
     const thumbCanvas = createCanvas(thumbViewport.width, thumbViewport.height);
     await page.render({
       canvas: null,

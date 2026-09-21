@@ -76,6 +76,74 @@ function normalizeDeck(deck: StoredDeck): StoredDeck {
   };
 }
 
+/** Safari/WebKit Web Storage is typically ~5MB (UTF-16). Stay under that. */
+const STORAGE_BUDGET_BYTES = 4.5 * 1024 * 1024;
+
+export const DECK_SAVE_QUOTA_MESSAGE =
+  "This deck is too large to save in this browser. Try a shorter PDF, or remove unused decks and retry.";
+
+export class DeckStorageError extends Error {
+  constructor(message = DECK_SAVE_QUOTA_MESSAGE) {
+    super(message);
+    this.name = "DeckStorageError";
+  }
+}
+
+export function isQuotaExceededError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { name?: string; code?: number; message?: string };
+  const name = e.name ?? "";
+  const msg = (e.message ?? "").toLowerCase();
+  return (
+    name === "QuotaExceededError" ||
+    name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    e.code === 22 ||
+    e.code === 1014 ||
+    msg.includes("quota")
+  );
+}
+
+function utf16Bytes(value: string): number {
+  return value.length * 2;
+}
+
+function localStorageUsedBytes(): number {
+  let bytes = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    bytes += utf16Bytes(key) + utf16Bytes(localStorage.getItem(key) ?? "");
+  }
+  return bytes;
+}
+
+function bytesForExistingKey(key: string): number {
+  const existing = localStorage.getItem(key);
+  return existing ? utf16Bytes(key) + utf16Bytes(existing) : 0;
+}
+
+function assertFitsLocalStorage(entries: Array<[string, string]>) {
+  let projected = localStorageUsedBytes();
+  for (const [key, value] of entries) {
+    projected -= bytesForExistingKey(key);
+    projected += utf16Bytes(key) + utf16Bytes(value);
+  }
+  if (projected > STORAGE_BUDGET_BYTES) {
+    throw new DeckStorageError(DECK_SAVE_QUOTA_MESSAGE);
+  }
+}
+
+function writeLocalStorage(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    if (isQuotaExceededError(err)) {
+      throw new DeckStorageError(DECK_SAVE_QUOTA_MESSAGE);
+    }
+    throw err;
+  }
+}
+
 export function saveDeck(deck: StoredDeck) {
   const next: StoredDeck = {
     ...deck,
@@ -83,9 +151,8 @@ export function saveDeck(deck: StoredDeck) {
     updatedAt: deck.updatedAt ?? Date.now(),
     highlights: deck.highlights ?? {},
   };
-  localStorage.setItem(KEY_DECK(next.id), JSON.stringify(next));
-  // Keep legacy highlight key in sync for older readers
-  localStorage.setItem(KEY_HIGHLIGHTS_LEGACY(next.id), JSON.stringify(next.highlights ?? {}));
+  const deckValue = JSON.stringify(next);
+  const highlightsValue = JSON.stringify(next.highlights ?? {});
   const list = listDecks().filter((d) => d.id !== next.id);
   list.unshift({
     id: next.id,
@@ -93,7 +160,18 @@ export function saveDeck(deck: StoredDeck) {
     createdAt: next.createdAt,
     count: next.slides.length,
   });
-  localStorage.setItem(KEY_INDEX, JSON.stringify(list));
+  const indexValue = JSON.stringify(list);
+
+  assertFitsLocalStorage([
+    [KEY_DECK(next.id), deckValue],
+    [KEY_HIGHLIGHTS_LEGACY(next.id), highlightsValue],
+    [KEY_INDEX, indexValue],
+  ]);
+
+  writeLocalStorage(KEY_DECK(next.id), deckValue);
+  // Keep legacy highlight key in sync for older readers
+  writeLocalStorage(KEY_HIGHLIGHTS_LEGACY(next.id), highlightsValue);
+  writeLocalStorage(KEY_INDEX, indexValue);
   window.dispatchEvent(new CustomEvent("voxdeck:decks"));
   window.dispatchEvent(
     new CustomEvent("voxdeck:highlights", { detail: { deckId: next.id } }),
@@ -130,6 +208,9 @@ export function persistDeckRevision(
     saveDeck(next);
     return { ok: true, revision: localRevision, updatedAt };
   } catch (e) {
+    if (e instanceof DeckStorageError || isQuotaExceededError(e)) {
+      return { ok: false, error: DECK_SAVE_QUOTA_MESSAGE };
+    }
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Save failed",

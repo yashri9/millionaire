@@ -5,16 +5,22 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Wordmark } from "@/components/shell";
 import { StatusPill, Waveform } from "@/components/ui-kit";
-import { getShare, type PublishedShare } from "@/lib/share-store";
 import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
 import { SlidePlaybackStage } from "@/components/highlights/SlidePlaybackStage";
 import { getPlaybackState } from "@/lib/playback-state";
 import {
   useSpeechNarration,
   usePrefetchNarration,
-  unlockNarrationAudio,
 } from "@/hooks/use-speech-narration";
 import type { Highlight } from "@/lib/highlight-store";
+import type { DeckSlide } from "@/lib/deck-store";
+
+type ViewerDeck = {
+  title: string;
+  revision?: number;
+  slides: DeckSlide[];
+  highlights: Record<string, Highlight[]>;
+};
 
 function fmt(s: number) {
   const n = Math.max(0, Math.floor(s));
@@ -28,14 +34,68 @@ function fmt(s: number) {
 export default function ViewerPage() {
   const params = useParams();
   const token = String(params.token ?? "");
-  const [share, setShare] = useState<PublishedShare | null>(null);
+  const [share, setShare] = useState<ViewerDeck | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
+  const narrationRef = useRef<{ pause: () => void; start: () => void } | null>(null);
 
   useEffect(() => {
-    setShare(getShare(token));
+    let cancelled = false;
+    void fetch(`/api/d/${token}`)
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as {
+          active?: boolean;
+          sessionId?: string;
+          deck?: {
+            title: string;
+            slides: {
+              index: number;
+              title: string;
+              narration: string;
+              text: string;
+              thumbnail?: string;
+            }[];
+          };
+        };
+        if (cancelled) return;
+        if (!res.ok || !data.active || !data.deck) {
+          setLoadError(true);
+          return;
+        }
+        setSessionId(data.sessionId ?? null);
+        setShare({
+          title: data.deck.title,
+          revision: 1,
+          highlights: {},
+          slides: data.deck.slides.map((s) => ({
+            n: String(s.index).padStart(2, "0"),
+            title: s.title || `Slide ${s.index}`,
+            script: s.narration || "",
+            durationSec: Math.max(
+              8,
+              Math.round((s.narration.trim().split(/\s+/).filter(Boolean).length / 155) * 60),
+            ),
+            thumbnail: s.thumbnail,
+            pageText: s.text,
+          })),
+        });
+        if (data.sessionId) {
+          void fetch(`/api/d/${token}/event`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ session_id: data.sessionId, type: "opened", payload: {} }),
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const slides = share?.slides ?? [];
@@ -50,17 +110,24 @@ export default function ViewerPage() {
 
   const advanceOrStop = useCallback(() => {
     setIdx((i) => {
-      if (i < slides.length - 1) return i + 1;
-      setPlaying(false);
+      if (i < slides.length - 1) {
+        window.setTimeout(() => narrationRef.current?.start(), 40);
+        return i + 1;
+      }
+      if (sessionId) {
+        void fetch(`/api/d/${token}/event`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, type: "completed", payload: {} }),
+        });
+      }
       return i;
     });
-  }, [slides.length]);
+  }, [slides.length, sessionId, token]);
 
-  const narration = useSpeechNarration(
-    active?.script ?? "",
-    playing && Boolean(active?.script?.trim()),
-    advanceOrStop,
-  );
+  const narration = useSpeechNarration(active?.script ?? "", advanceOrStop);
+  narrationRef.current = narration;
+  const playing = narration.playing;
   const elapsed = narration.currentTime;
   const slideDur =
     narration.duration > 0 ? narration.duration : (active?.durationSec ?? 0);
@@ -92,7 +159,7 @@ export default function ViewerPage() {
   const slideScripts = useMemo(() => slides.map((s) => s.script), [slides]);
   usePrefetchNarration(slideScripts);
 
-  if (!share || !active) {
+  if (loadError || !share || !active) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-foreground">
         <Wordmark />
@@ -157,8 +224,8 @@ export default function ViewerPage() {
             <button
               type="button"
               onClick={() => {
-                if (!playing) unlockNarrationAudio();
-                setPlaying((p) => !p);
+                if (playing) narration.pause();
+                else narration.start();
               }}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-foreground transition-transform hover:scale-105"
             >
@@ -187,22 +254,22 @@ export default function ViewerPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setPlaying(false);
+                  narration.pause();
                   setIdx((i) => Math.max(0, i - 1));
                 }}
                 disabled={idx === 0}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-30"
+                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-30"
               >
                 ◀ Prev
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setPlaying(false);
+                  narration.pause();
                   setIdx((i) => Math.min(slides.length - 1, i + 1));
                 }}
                 disabled={idx >= slides.length - 1}
-                className="rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-foreground"
+                className="min-h-11 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-foreground"
               >
                 Next ▶
               </button>

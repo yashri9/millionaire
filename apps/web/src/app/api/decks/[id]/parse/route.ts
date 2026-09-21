@@ -6,6 +6,8 @@ import { processDeckUpload, buildRenderWarning } from "@/lib/deckProcessor";
 import { uploadRenderedImages } from "@/lib/storage";
 import { serverEnv } from "@/lib/env";
 
+export const maxDuration = 300;
+
 type Ctx = { params: Promise<{ id: string }> };
 
 /**

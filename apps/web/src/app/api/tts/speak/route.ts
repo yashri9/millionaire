@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { handle, ApiError } from "@/lib/http";
 import {
@@ -26,6 +27,7 @@ const PRESET_IDS = new Set(VOICE_PRESETS.map((v) => v.id));
  */
 export async function POST(req: Request) {
   return handle(async () => {
+    await requireUser();
     const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
     if (!apiKey) {
       throw new ApiError(503, "ELEVENLABS_API_KEY is not configured");
