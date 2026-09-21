@@ -9,6 +9,7 @@
  *   this[#methodPromises].getOrInsertComputed is not a function
  * in browsers that don't ship them yet (e.g. Firefox ESR, older Chromium).
  */
+import type { TextContent } from "pdfjs-dist/types/src/display/api";
 import type { DeckSlide, SlideWord } from "@/lib/deck-store";
 import { ocrCanvas, terminateOcr } from "@/lib/ocr";
 import {
@@ -184,7 +185,27 @@ export async function parsePdfToSlides(
       const pageW = viewport.width;
       const pageH = viewport.height;
 
-      const textContent = await page.getTextContent();
+      // Safari/WebKit does not expose ReadableStream as an async iterable,
+      // which makes pdf.js 6.x getTextContent() throw inside its for-await loop.
+      // Consume the same stream through the Web Streams reader API instead;
+      // this works in Safari/iPadOS as well as Chromium/Android.
+      const textReader = page.streamTextContent().getReader();
+      const textContent: TextContent = {
+        items: [],
+        styles: Object.create(null),
+        lang: null,
+      };
+      try {
+        for (;;) {
+          const { done, value } = await textReader.read();
+          if (done) break;
+          textContent.lang ??= value.lang;
+          Object.assign(textContent.styles, value.styles);
+          textContent.items.push(...value.items);
+        }
+      } finally {
+        textReader.releaseLock();
+      }
       const words: SlideWord[] = [];
       const runs: TextRun[] = [];
       // Y-delta line breaks — same as eval pipeline (gen-pop) so structureSlideContent
