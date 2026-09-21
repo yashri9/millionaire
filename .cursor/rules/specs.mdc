@@ -1,0 +1,12 @@
+---
+description: Spec-driven feature work for VOXDECK
+globs: specs/**/*.md
+alwaysApply: false
+---
+
+# Specs
+
+- One feature per file. Use Goal / Screens / Flow / Acceptance.
+- Acceptance lines: Given / When / Then.
+- No framework or SQL details unless the user must see that screen name.
+- Agents implement against these files; humans edit them.

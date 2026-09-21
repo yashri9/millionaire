@@ -1,0 +1,24 @@
+{
+  "name": "voxdeck",
+  "private": true,
+  "version": "0.1.0",
+  "description": "VOXDECK monorepo — web app, shared packages, and domain logic.",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "domains/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @voxdeck/web -- --port 3010",
+    "dev:web": "npm run dev -w @voxdeck/web -- --port 3010",
+    "build": "npm run build -w @voxdeck/web",
+    "build:web": "npm run build -w @voxdeck/web",
+    "lint": "npm run lint -w @voxdeck/web",
+    "typecheck": "npm run typecheck -w @voxdeck/web && npm run typecheck -w @voxdeck/decks && npm run typecheck -w @voxdeck/narration && npm run typecheck -w @voxdeck/auth",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

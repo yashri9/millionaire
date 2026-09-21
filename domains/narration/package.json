@@ -1,0 +1,19 @@
+{
+  "name": "@voxdeck/narration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./word-timing": "./src/word-timing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test src/word-timing.test.ts src/pitch-script.test.ts src/slide-content.test.ts src/number-check.test.ts src/reconcile-text-ocr.test.ts src/labeled-facts.test.ts",
+    "eval": "node --experimental-strip-types --test evals/narration.eval.ts"
+  },
+  "devDependencies": {
+    "@voxdeck/tsconfig": "*",
+    "typescript": "^5.9.3"
+  }
+}

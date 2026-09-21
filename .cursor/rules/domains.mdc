@@ -1,0 +1,12 @@
+---
+description: Domain package conventions
+globs: domains/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Domains
+
+- Pure product logic only — no Next.js route handlers, no React components.
+- Export from `src/index.ts`. Keep modules named for behavior.
+- Add `*.test.ts` beside non-trivial logic.
+- Apps import `@voxdeck/<domain>`; do not duplicate types into app-local copies when a domain export exists.

@@ -1,10 +1,15 @@
 # Secrets
-backend/.env
+.env.local
+**/.env.local
+apps/web/.env.local
+apps/web/.env*.local
 
-# Uploaded + rendered deck storage (regenerated at runtime)
-backend/storage/
+# Local leftovers (eval dumps, OCR cache)
+.tmp/
+tmp-narration-eval/
+*.traineddata
 
-# Python
+# Python (if any local scripts)
 __pycache__/
 *.pyc
 .venv/
@@ -14,11 +19,16 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Next.js web app (web/)
-web/node_modules/
-web/.next/
-web/out/
-web/.env.local
-web/.env*.local
-web/next-env.d.ts
-web/.vercel
+# Node / Next
+node_modules/
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+apps/web/.vercel
+*.tsbuildinfo
+
+# Tooling caches
+.turbo/
+coverage/
+.eslintcache

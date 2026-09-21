@@ -1,0 +1,27 @@
+---
+description: VOXDECK monorepo layout and spec-driven workflow (always on)
+alwaysApply: true
+---
+
+# VOXDECK monorepo rules
+
+## Source of truth
+- Product behavior lives in `specs/**/*.md` (plain English). Read the relevant spec before coding.
+- Update the spec when behavior changes. Do not vibe new product rules.
+
+## Folder law
+- `apps/web` — the only runnable product surface
+- `packages/` — shared tooling/tokens (`ui`, `tsconfig`, `eslint-config`)
+- `domains/` — product logic by domain (`decks`, `narration`, `auth`)
+- No giant catch-all `utils/` or `helpers/` folders. Name files for the job they do.
+- Do not reintroduce `apps/api` or `apps/studio` (old Deck Agent FastAPI prototype).
+
+## File size & naming
+- Prefer small, single-purpose files (`word-timing.ts`, `seed-slides.ts`).
+- Split files that mix unrelated concerns.
+- Keep hierarchy shallow (avoid deep nesting).
+
+## Safety
+- Domain changes need a small test when practical.
+- Run `npm run check` (or at least typecheck/tests for touched workspaces) before claiming done.
+- Recipient routes (`/d/*`) stay public — never require login.

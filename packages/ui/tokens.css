@@ -1,0 +1,18 @@
+/* Shared VOXDECK brand tokens — import from apps; do not duplicate hex values. */
+:root {
+  --paper: oklch(1 0 0);
+  --chalk: oklch(0.972 0 0);
+  --ink: oklch(0.14 0 0);
+  --lime: oklch(0.94 0.22 118);
+  --lime-soft: oklch(0.94 0.22 118 / 0.25);
+  --live: oklch(0.72 0.19 148);
+  --warn: oklch(0.78 0.16 78);
+  --danger: oklch(0.62 0.22 27);
+
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --shadow-offset: 4px 4px 0 0 var(--ink);
+  --shadow-offset-sm: 2px 2px 0 0 var(--ink);
+}

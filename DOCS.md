@@ -1,4 +1,13 @@
-# Deck Agent — Universal Docs
+# VOXDECK — docs (legacy architecture notes)
+
+> **Product surface:** `apps/web` only. The old FastAPI + vanilla “Deck Agent Studio”
+> prototype (`apps/api` / `apps/studio`, formerly `backend/` + `frontend/`) has been
+> **removed**. Prefer `AGENTS.md`, `specs/`, and `FILE_MAP.md` for current structure.
+> Sections below describe historical FastAPI architecture and may be outdated.
+
+---
+
+# Deck Agent — Universal Docs (archived narrative)
 
 The single source of truth for **what this project does, how the pieces fit
 together, and where every feature lives**. Read this before touching the code.

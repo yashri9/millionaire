@@ -1,0 +1,19 @@
+{
+  "name": "@voxdeck/decks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./seed-slides": "./src/seed-slides.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test src/types.test.ts"
+  },
+  "devDependencies": {
+    "@voxdeck/tsconfig": "*",
+    "typescript": "^5.9.3"
+  }
+}
