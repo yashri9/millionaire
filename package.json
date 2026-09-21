@@ -20,5 +20,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "next": "15.5.9",
+    "react": "19.1.2",
+    "react-dom": "19.1.2"
   }
 }

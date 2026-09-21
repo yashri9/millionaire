@@ -32,3 +32,6 @@ apps/web/.vercel
 .turbo/
 coverage/
 .eslintcache
+.vercel
+.env.local
+.env*.local

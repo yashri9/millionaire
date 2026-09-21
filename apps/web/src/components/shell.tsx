@@ -2,9 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { LogoutButton } from "@/components/LogoutButton";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+
+const MARKETING_LINKS = [
+  { href: "#how", label: "How it works" },
+  { href: "#studio", label: "Examples" },
+  { href: "#voices", label: "Voices" },
+  { href: "#pricing", label: "Pricing" },
+  { href: "#faq", label: "FAQ" },
+];
 
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
@@ -32,17 +41,21 @@ export function TopBar({
   bleed?: boolean;
 }) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
   const isActive = (p: string) =>
     p === "/" ? pathname === "/" : pathname.startsWith(p);
 
   return (
-    <header className="sticky top-0 z-40 shrink-0 border-b border-border bg-background/85 backdrop-blur">
+    <header
+      id="navbar"
+      className="sticky top-0 z-40 shrink-0 border-b border-border bg-background/85 backdrop-blur"
+    >
       <div
-        className={`mx-auto flex h-[72px] w-full items-center justify-between gap-3 ${
-          bleed ? "max-w-none px-4 md:px-6" : "max-w-[1280px] px-5 md:px-10"
+        className={`mx-auto flex min-h-16 w-full items-center justify-between gap-4 lg:min-h-[4.5rem] ${
+          bleed ? "max-w-none px-4 md:px-6" : "max-w-7xl px-[5%]"
         }`}
       >
-        <div className="flex min-w-0 items-center gap-12">
+        <div className="flex min-w-0 items-center gap-8 lg:gap-12">
           <Wordmark />
           {variant === "app" && (
             <nav className="hidden items-center gap-1 md:flex">
@@ -65,16 +78,12 @@ export function TopBar({
             </nav>
           )}
           {variant === "marketing" && (
-            <nav className="hidden items-center gap-8 md:flex">
-              {[
-                { href: "#how", label: "How it works" },
-                { href: "#studio", label: "Studio" },
-                { href: "#voices", label: "Voices" },
-              ].map((l) => (
+            <nav className="hidden items-center gap-8 lg:flex">
+              {MARKETING_LINKS.map((l) => (
                 <a
                   key={l.href}
                   href={l.href}
-                  className="nav-underline text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {l.label}
                 </a>
@@ -82,19 +91,30 @@ export function TopBar({
             </nav>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-6">
+        <div className="flex shrink-0 items-center gap-4 lg:gap-6">
           {children ?? (variant === "marketing" ? (
             <>
-              <Link href="/login" className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex">
+              <Link href="/login" className="hidden text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground lg:inline-flex">
                 Log in
               </Link>
               <Link
                 href="/signup"
-                className="group relative inline-flex h-11 items-center gap-2 rounded-full bg-foreground px-6 text-sm font-semibold text-background shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                className="group relative hidden h-10 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md lg:inline-flex"
               >
-                Start creating
-                <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
+                Get started
               </Link>
+              <button
+                type="button"
+                className="-mr-2 flex h-10 w-10 items-center justify-center lg:hidden"
+                aria-expanded={menuOpen}
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                <span className="flex w-5 flex-col gap-1.5" aria-hidden>
+                  <span className={`h-px w-full bg-foreground transition ${menuOpen ? "translate-y-[4px] rotate-45" : ""}`} />
+                  <span className={`h-px w-full bg-foreground transition ${menuOpen ? "-translate-y-[4px] -rotate-45" : ""}`} />
+                </span>
+              </button>
             </>
           ) : (
             <>
@@ -109,6 +129,38 @@ export function TopBar({
           ))}
         </div>
       </div>
+      {variant === "marketing" && menuOpen && (
+        <div className="border-t border-border px-[5%] py-6 lg:hidden">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4">
+            {MARKETING_LINKS.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="py-1 text-lg font-semibold"
+                onClick={() => setMenuOpen(false)}
+              >
+                {l.label}
+              </a>
+            ))}
+            <div className="mt-2 flex flex-col gap-3">
+              <Link
+                href="/login"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-border text-sm font-semibold"
+                onClick={() => setMenuOpen(false)}
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background"
+                onClick={() => setMenuOpen(false)}
+              >
+                Get started
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -146,6 +198,7 @@ export function AppShell({
       >
         {children}
       </main>
+      {variant === "marketing" && !fillViewport && <MarketingFooter />}
     </div>
   );
 }

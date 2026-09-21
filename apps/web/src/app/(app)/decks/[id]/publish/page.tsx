@@ -6,29 +6,36 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/shell";
 import { Button, Input, StatusPill, StripedProgress, Waveform } from "@/components/ui-kit";
 import { ComingSoonBadge } from "@/components/ui-panel";
-import { loadSlidesFor, getDeck } from "@/lib/deck-store";
+import { loadSlidesFor, getDeck, saveDeck } from "@/lib/deck-store";
 import { getAllHighlights, useHighlights } from "@/lib/highlight-store";
 import { publishDeckSnapshot, getShareTokenForDeck } from "@/lib/share-store";
 import { SlidePlaybackStage } from "@/components/highlights/SlidePlaybackStage";
 import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
 import { useSpeechNarration, usePrefetchNarration, unlockNarrationAudio } from "@/hooks/use-speech-narration";
+import { getCachedNarration } from "@/lib/tts-cache";
+import { useVoiceSettings } from "@/lib/voice-store";
+import { getPreset, type DeckVoiceSettings } from "@/lib/voice-settings";
 
 type Access = "anyone" | "email" | "password";
 
-type Check = { id: string; label: string; state: "ok" | "warn"; hint?: string };
+type Check = {
+  id: string;
+  label: string;
+  state: "ok" | "warn";
+  hint?: string;
+  action?: "cover";
+};
 
-const initialChecks: Check[] = [
-  { id: "narr", label: "All slides narrated", state: "ok" },
-  { id: "voice", label: "Voice consistent — Marcus", state: "ok" },
-  { id: "dur", label: "Runtime 3:41 (under 5 min)", state: "ok" },
-  {
-    id: "s05",
-    label: "Slide 05 edited — re-approve",
-    state: "warn",
-    hint: "Traction copy changed since last preview.",
-  },
-  { id: "cover", label: "Cover image looks crisp", state: "ok" },
-];
+function slideAudioSec(
+  script: string,
+  fallback: number,
+  voice?: DeckVoiceSettings,
+) {
+  const cached = getCachedNarration(script, voice);
+  const last = cached?.tokens[cached.tokens.length - 1];
+  const sec = last ? last.endMs / 1000 : 0;
+  return Number.isFinite(sec) && sec > 0.2 ? sec : fallback;
+}
 
 function fmt(s: number) {
   const n = Math.max(0, Math.floor(s));
@@ -42,7 +49,6 @@ export default function PublishPage() {
   const [slides, setSlides] = useState<ReturnType<typeof loadSlidesFor>["slides"]>([]);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [checks, setChecks] = useState(initialChecks);
   const [access, setAccess] = useState<Access>("anyone");
   const [gatedEmail, setGatedEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,6 +65,8 @@ export default function PublishPage() {
   const [leftTab, setLeftTab] = useState<"checklist" | "access" | "tracking">("checklist");
   const stageRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const voice = useVoiceSettings();
 
   useEffect(() => {
     const loaded = loadSlidesFor(id);
@@ -73,10 +81,44 @@ export default function PublishPage() {
 
   const active = slides[idx] ?? slides[0];
   const { items: highlights } = useHighlights(id, active?.n ?? "01");
-  const totalDur = slides.reduce((a, s) => a + (s.durationSec ?? 0), 0);
-  const priorDur = slides.slice(0, idx).reduce((a, s) => a + (s.durationSec ?? 0), 0);
+  const voiceName = getPreset(voice.voiceId).name;
+  const totalDur = slides.reduce(
+    (a, s) => a + slideAudioSec(s.script ?? "", s.durationSec ?? 0, voice),
+    0,
+  );
+  const priorDur = slides
+    .slice(0, idx)
+    .reduce((a, s) => a + slideAudioSec(s.script ?? "", s.durationSec ?? 0, voice), 0);
   const shareUrl = `voxdeck.app/d/${shareToken || customSlug || "your-deck"}`;
-  const openIssues = checks.filter((c) => c.state === "warn").length;
+  const hasCover = Boolean(slides[0]?.thumbnail);
+  const checks: Check[] = [
+    {
+      id: "narr",
+      label:
+        slides.length > 0 && slides.every((s) => s.script?.trim())
+          ? "All slides narrated"
+          : "Some slides still need narration",
+      state:
+        slides.length > 0 && slides.every((s) => s.script?.trim()) ? "ok" : "warn",
+    },
+    {
+      id: "voice",
+      label: `Voice consistent — ${voiceName}`,
+      state: "ok",
+    },
+    {
+      id: "dur",
+      label: `Runtime ${fmt(totalDur)}${totalDur > 0 && totalDur < 300 ? " (under 5 min)" : ""}`,
+      state: "ok",
+    },
+    {
+      id: "cover",
+      label: hasCover ? "Change cover image" : "Add cover image",
+      state: hasCover ? "ok" : "warn",
+      action: "cover",
+    },
+  ];
+  const openIssues = checks.filter((c) => c.state === "warn" && c.action !== "cover").length;
   const readyToShip = openIssues === 0;
 
   const advanceOrStop = useCallback(() => {
@@ -111,10 +153,25 @@ export default function PublishPage() {
   const { ready: ttsReady, total: ttsTotal, prefetching: ttsPrefetching } =
     usePrefetchNarration(slideScripts);
 
-  function resolveCheck(checkId: string) {
-    setChecks((prev) =>
-      prev.map((c) => (c.id === checkId ? { ...c, state: "ok" as const } : c)),
-    );
+  function onCoverFile(file: File | undefined) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      if (!dataUrl) return;
+      const deck = getDeck(id);
+      if (!deck || deck.slides.length === 0) return;
+      const nextSlides = deck.slides.map((s, i) =>
+        i === 0 ? { ...s, thumbnail: dataUrl } : s,
+      );
+      saveDeck({
+        ...deck,
+        slides: nextSlides,
+        revision: (deck.revision ?? 0) + 1,
+      });
+      setSlides(nextSlides);
+    };
+    reader.readAsDataURL(file);
   }
 
   function publish() {
@@ -186,7 +243,7 @@ export default function PublishPage() {
     <AppShell variant="app">
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-8">
         {/* Left rail — same structure as preview */}
-        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <div>
             <Link
               href={`/decks/${id}/edit`}
@@ -240,153 +297,173 @@ export default function PublishPage() {
             ))}
           </div>
 
-          {leftTab === "checklist" && (
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <div className="eyebrow">Pre-flight</div>
-                <StatusPill
-                  status={readyToShip ? "live" : "draft"}
-                  label={readyToShip ? "Ready" : "Review"}
-                />
-              </div>
-              <ul className="space-y-1">
-                {checks.map((c) => (
-                  <li
-                    key={c.id}
-                    className="rounded-md border border-border bg-background px-2.5 py-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2">
-                        <span
-                          className={`mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-bold ${
-                            c.state === "ok"
-                              ? "bg-live text-foreground"
-                              : "bg-warn text-foreground"
-                          }`}
-                        >
-                          {c.state === "ok" ? "✓" : "!"}
-                        </span>
-                        <div>
-                          <div className="text-xs font-medium leading-snug">{c.label}</div>
-                          {c.hint && (
-                            <div className="mt-0.5 text-[10px] text-muted-foreground">{c.hint}</div>
-                          )}
-                        </div>
-                      </div>
-                      {c.state === "warn" && (
-                        <Button size="sm" variant="ghost" onClick={() => resolveCheck(c.id)}>
-                          Approve
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {leftTab === "access" && (
-            <div className="space-y-3">
-              <div className="eyebrow">Who can open</div>
-              <div className="space-y-1.5">
-                {(
-                  [
-                    { id: "anyone", title: "Anyone with the link", sub: "Zero friction" },
-                    { id: "email", title: "Email-gated", sub: "Enter email to play" },
-                    { id: "password", title: "Password", sub: "Share code separately" },
-                  ] as const
-                ).map((o) => {
-                  const on = access === o.id;
-                  return (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => setAccess(o.id)}
-                      className={`flex w-full flex-col rounded-md px-2.5 py-2 text-left transition-colors ${
-                        on ? "bg-foreground text-background" : "hover:bg-muted"
-                      }`}
-                    >
-                      <span className="text-xs font-semibold">{o.title}</span>
-                      <span
-                        className={`text-[10px] ${on ? "text-background/70" : "text-muted-foreground"}`}
-                      >
-                        {o.sub}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {access === "email" && (
-                <Input
-                  value={gatedEmail}
-                  onChange={(e) => setGatedEmail(e.target.value)}
-                  placeholder="name@company.com"
-                />
-              )}
-              {access === "password" && (
-                <Input
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="e.g. quiet-jazz-42"
-                />
-              )}
+          <div className="min-h-[18rem]">
+            {leftTab === "checklist" && (
               <div>
-                <div className="eyebrow mb-2">Expires</div>
-                <div className="flex gap-1">
-                  {(["never", "7d", "30d"] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setExpires(v)}
-                      className={`flex-1 rounded-full border px-2 py-1.5 text-[10px] font-semibold ${
-                        expires === v
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border hover:border-foreground/40"
-                      }`}
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="eyebrow">Pre-flight</div>
+                  <StatusPill
+                    status={readyToShip ? "live" : "draft"}
+                    label={readyToShip ? "Ready" : "Review"}
+                  />
+                </div>
+                <ul className="space-y-1">
+                  {checks.map((c) => (
+                    <li
+                      key={c.id}
+                      className="rounded-md border border-border bg-background px-2.5 py-2"
                     >
-                      {v === "never" ? "Never" : v === "7d" ? "7d" : "30d"}
-                    </button>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2">
+                          <span
+                            className={`mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-bold ${
+                              c.state === "ok"
+                                ? "bg-live text-foreground"
+                                : "bg-warn text-foreground"
+                            }`}
+                          >
+                            {c.state === "ok" ? "✓" : "!"}
+                          </span>
+                          <div>
+                            <div className="text-xs font-medium leading-snug">{c.label}</div>
+                            {c.hint && (
+                              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                                {c.hint}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {c.action === "cover" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => coverInputRef.current?.click()}
+                          >
+                            {hasCover ? "Change" : "Add"}
+                          </Button>
+                        )}
+                      </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    onCoverFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
               </div>
-            </div>
-          )}
+            )}
 
-          {leftTab === "tracking" && (
-            <div className="space-y-2">
-              <div className="eyebrow mb-2">Analytics</div>
-              <label className="flex items-center justify-between rounded-md border border-border px-2.5 py-2 text-xs">
-                <span className="font-semibold">Capture viewer email</span>
-                <input
-                  type="checkbox"
-                  checked={captureEmail}
-                  onChange={(e) => setCaptureEmail(e.target.checked)}
-                  className="h-4 w-4 accent-foreground"
-                />
-              </label>
-              <label className="flex items-center justify-between rounded-md border border-border px-2.5 py-2 text-xs">
-                <span className="font-semibold">Per-slide dwell</span>
-                <input
-                  type="checkbox"
-                  checked={trackDwell}
-                  onChange={(e) => setTrackDwell(e.target.checked)}
-                  className="h-4 w-4 accent-foreground"
-                />
-              </label>
-              <div className="mt-3 rounded-md border border-dashed border-border px-2.5 py-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🧑‍💼</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold">Presenter avatar</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      Lip-synced avatar in the shared deck
-                    </div>
+            {leftTab === "access" && (
+              <div className="flex h-full flex-col space-y-3">
+                <div className="eyebrow">Who can open</div>
+                <div className="space-y-1.5">
+                  {(
+                    [
+                      { id: "anyone", title: "Anyone with the link", sub: "Zero friction" },
+                      { id: "email", title: "Email-gated", sub: "Enter email to play" },
+                      { id: "password", title: "Password", sub: "Share code separately" },
+                    ] as const
+                  ).map((o) => {
+                    const on = access === o.id;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setAccess(o.id)}
+                        className={`flex w-full flex-col rounded-md px-2.5 py-2 text-left transition-colors ${
+                          on ? "bg-foreground text-background" : "hover:bg-muted"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold">{o.title}</span>
+                        <span
+                          className={`text-[10px] ${on ? "text-background/70" : "text-muted-foreground"}`}
+                        >
+                          {o.sub}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="h-11">
+                  {access === "email" && (
+                    <Input
+                      value={gatedEmail}
+                      onChange={(e) => setGatedEmail(e.target.value)}
+                      placeholder="name@company.com"
+                    />
+                  )}
+                  {access === "password" && (
+                    <Input
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="e.g. quiet-jazz-42"
+                    />
+                  )}
+                </div>
+                <div>
+                  <div className="eyebrow mb-2">Expires</div>
+                  <div className="flex gap-1">
+                    {(["never", "7d", "30d"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setExpires(v)}
+                        className={`flex-1 rounded-full border px-2 py-1.5 text-[10px] font-semibold ${
+                          expires === v
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border hover:border-foreground/40"
+                        }`}
+                      >
+                        {v === "never" ? "Never" : v === "7d" ? "7d" : "30d"}
+                      </button>
+                    ))}
                   </div>
-                  <ComingSoonBadge />
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {leftTab === "tracking" && (
+              <div className="space-y-2">
+                <div className="eyebrow mb-2">Analytics</div>
+                <label className="flex items-center justify-between rounded-md border border-border px-2.5 py-2 text-xs">
+                  <span className="font-semibold">Capture viewer email</span>
+                  <input
+                    type="checkbox"
+                    checked={captureEmail}
+                    onChange={(e) => setCaptureEmail(e.target.checked)}
+                    className="h-4 w-4 accent-foreground"
+                  />
+                </label>
+                <label className="flex items-center justify-between rounded-md border border-border px-2.5 py-2 text-xs">
+                  <span className="font-semibold">Per-slide dwell</span>
+                  <input
+                    type="checkbox"
+                    checked={trackDwell}
+                    onChange={(e) => setTrackDwell(e.target.checked)}
+                    className="h-4 w-4 accent-foreground"
+                  />
+                </label>
+                <div className="mt-3 rounded-md border border-dashed border-border px-2.5 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🧑‍💼</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold">Presenter avatar</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Lip-synced avatar in the shared deck
+                      </div>
+                    </div>
+                    <ComingSoonBadge />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="rounded-2xl border-2 border-foreground bg-accent p-4 offset-shadow-sm">
             <div className="eyebrow">Want a dry run?</div>
@@ -400,9 +477,83 @@ export default function PublishPage() {
               Rehearse first
             </Link>
           </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="eyebrow">Shareable link</div>
+              {published ? (
+                <StatusPill status="live" label="Live" />
+              ) : (
+                <StatusPill status="draft" label="Not shipped" />
+              )}
+            </div>
+            <div className="flex items-stretch overflow-hidden rounded-xl border-2 border-foreground">
+              <span className="flex shrink-0 items-center bg-muted px-2 font-mono text-[10px] text-muted-foreground">
+                voxdeck.app/d/
+              </span>
+              <input
+                value={customSlug}
+                onChange={(e) =>
+                  setCustomSlug(e.target.value.replace(/[^a-z0-9-]/gi, "-").toLowerCase())
+                }
+                className="min-w-0 flex-1 border-0 bg-background px-2 font-mono text-xs text-foreground focus:outline-none"
+                placeholder="your-deck"
+              />
+              <button
+                type="button"
+                onClick={copyLink}
+                disabled={!published}
+                className="flex shrink-0 items-center bg-foreground px-2.5 text-[10px] font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-30"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            {publishing && (
+              <div>
+                <StripedProgress value={progress} label="Publishing" />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Saving highlight timing and minting your shareable link…
+                </p>
+              </div>
+            )}
+            {publishError && (
+              <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                {publishError}
+                <span className="mt-1 block text-muted-foreground">
+                  Your edits are still saved in the editor.
+                </span>
+              </div>
+            )}
+            {published && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
+                >
+                  {copied ? "Copied" : "Copy link"}
+                </button>
+                <Link
+                  href={`/d/${shareToken || customSlug}`}
+                  className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
+                >
+                  Open as recipient
+                </Link>
+              </div>
+            )}
+            {!published && !publishing && (
+              <button
+                type="button"
+                onClick={publish}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background transition-transform hover:-translate-y-0.5"
+              >
+                Publish deck
+              </button>
+            )}
+          </div>
         </aside>
 
-        {/* Main stage — capped slide preview + share console */}
+        {/* Main stage — walkthrough preview */}
         <section className="min-w-0">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="text-xs text-muted-foreground">
@@ -501,136 +652,9 @@ export default function PublishPage() {
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-
-            {/* Slide picker */}
-            <div className="border-b border-border bg-background px-4 py-3 sm:px-5">
-              <div className="eyebrow mb-2">Slides · {slides.length}</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {slides.map((s, i) => (
-                  <button
-                    key={s.n}
-                    type="button"
-                    onClick={() => {
-                      setIdx(i);
-                      setPlaying(false);
-                    }}
-                    className={`shrink-0 rounded-md border px-2.5 py-1.5 text-left transition-colors ${
-                      i === idx
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border bg-background hover:border-foreground/40"
-                    }`}
-                  >
-                    <div className="font-mono text-[10px] opacity-70">{s.n}</div>
-                    <div className="max-w-[100px] truncate text-xs font-medium">{s.title}</div>
-                  </button>
-                ))}
-                {slides.length === 0 && (
-                  <span className="text-xs text-muted-foreground">Upload a deck in the editor first.</span>
-                )}
-              </div>
-            </div>
-
-            {/* Share / publish bar */}
-            <div className="space-y-3 px-4 py-4 sm:px-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="eyebrow">Shareable link</div>
-                {published ? (
-                  <StatusPill status="live" label="Live" />
-                ) : (
-                  <StatusPill status="draft" label="Not shipped" />
-                )}
-              </div>
-
-              <div className="flex max-w-xl items-stretch overflow-hidden rounded-xl border-2 border-foreground">
-                <span className="flex shrink-0 items-center bg-muted px-2.5 font-mono text-[11px] text-muted-foreground sm:px-3 sm:text-xs">
-                  voxdeck.app/d/
-                </span>
-                <input
-                  value={customSlug}
-                  onChange={(e) =>
-                    setCustomSlug(e.target.value.replace(/[^a-z0-9-]/gi, "-").toLowerCase())
-                  }
-                  className="min-w-0 flex-1 border-0 bg-background px-2 font-mono text-sm text-foreground focus:outline-none"
-                  placeholder="your-deck"
-                />
-                <button
-                  type="button"
-                  onClick={copyLink}
-                  disabled={!published}
-                  className="flex shrink-0 items-center bg-foreground px-3 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-30"
-                >
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                {published ? "This link is live" : "Preview — publish to activate"}
-              </p>
-
-              {publishing && (
-                <div>
-                  <StripedProgress value={progress} label="Publishing" />
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Saving highlight timing and minting your shareable link…
-                  </p>
-                </div>
-              )}
-              {publishError && (
-                <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
-                  {publishError}
-                  <span className="mt-1 block text-muted-foreground">
-                    Your edits are still saved in the editor.
-                  </span>
-                </div>
-              )}
-              {published && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={copyLink}
-                    className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
-                  >
-                    {copied ? "Copied" : "Copy link"}
-                  </button>
-                  <Link
-                    href={`/d/${shareToken || customSlug}`}
-                    className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
-                  >
-                    Open as recipient
-                  </Link>
-                </div>
-              )}
-              {!published && !publishing && (
-                <button
-                  type="button"
-                  onClick={publish}
-                  className="inline-flex h-11 w-full max-w-xl items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background transition-transform hover:-translate-y-0.5"
-                >
-                  Publish deck
-                </button>
-              )}
-
-              <div className="grid max-w-xl grid-cols-2 gap-x-6 gap-y-1 border-t border-border pt-3 sm:grid-cols-4">
-                <Summary k="Access" v={access === "anyone" ? "Anyone" : access === "email" ? "Email" : "Password"} />
-                <Summary k="Capture" v={captureEmail ? "Email" : "Anon"} />
-                <Summary k="Tracking" v={trackDwell ? "Dwell" : "Opens"} />
-                <Summary
-                  k="Expires"
-                  v={expires === "never" ? "Never" : expires === "7d" ? "7 days" : "30 days"}
-                />
-              </div>
-            </div>
           </div>
         </section>
       </div>
     </AppShell>
-  );
-}
-
-function Summary({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="py-1">
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{k}</div>
-      <div className="font-mono text-xs font-semibold">{v}</div>
-    </div>
   );
 }

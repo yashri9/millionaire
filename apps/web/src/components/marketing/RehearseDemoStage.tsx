@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  DEFAULT_MARKETING_DEMO_ID,
   MARKETING_DEMO_DECKS,
   demoSlideImage,
   getMarketingDemo,
@@ -16,7 +15,7 @@ import {
  * rehearse player on the right. Add decks in MARKETING_DEMO_DECKS.
  */
 export function StudioRehearseSection() {
-  const [deckId, setDeckId] = useState(DEFAULT_MARKETING_DEMO_ID);
+  const [deckId, setDeckId] = useState("meesho");
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -120,28 +119,31 @@ export function StudioRehearseSection() {
   }
 
   return (
-    <div className="mx-auto grid max-w-[1280px] items-start gap-12 px-5 py-16 md:grid-cols-2 md:px-10 md:py-24">
+    <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-y-12 md:grid-cols-2 md:gap-x-12 lg:gap-x-20">
       {/* Left: story + CTA + sample deck picker */}
-      <div className="md:sticky md:top-28">
-        <div className="eyebrow">Studio</div>
-        <h2 className="mt-3 font-display text-3xl font-bold tracking-tighter sm:text-4xl">
-          Rehearse like the recipient will hear it.
+      <div>
+        <p className="mb-3 font-semibold md:mb-4">The studio</p>
+        <h2 className="mb-5 font-display text-4xl font-bold tracking-tighter md:mb-6 md:text-5xl lg:text-6xl">
+          Rehearse it before you send it.
         </h2>
-        <p className="mt-4 max-w-md text-muted-foreground leading-relaxed">
-          Switch between sample decks — Uber, Meesho, and more — then play the
-          walkthrough with real scripts. Upload your own when you&apos;re ready.
+        <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
+          Preview your walkthrough exactly as your prospect will see it. Tweak the
+          voice, pacing, and emphasis — then ship.
+        </p>
+        <p className="mt-3 max-w-md text-sm text-muted-foreground">
+          Try it right now on a sample deck. No account needed.
         </p>
         <Link
-          href="/decks/new"
+          href="/signup"
           className="mt-8 inline-flex h-11 items-center gap-2 rounded-full border-2 border-foreground bg-background px-5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
         >
-          Open the studio →
+          Open a live sample →
         </Link>
 
         {/* Sample decks — sits under the studio CTA */}
         <div className="mt-10 max-w-md rounded-2xl border border-border bg-background p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <span className="eyebrow">Sample decks</span>
+            <span className="eyebrow">Try a walkthrough</span>
             <span className="font-mono text-[10px] text-muted-foreground">
               {MARKETING_DEMO_DECKS.length} demos
             </span>
@@ -219,7 +221,7 @@ export function StudioRehearseSection() {
             className="animate-rise text-sm leading-relaxed text-foreground"
           >
             <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              Script
+              Voiceover
             </span>
             {slide.script}
           </p>

@@ -173,9 +173,9 @@ export default function PreviewPage() {
             </p>
           </div>
 
-          <div>
-            <div className="eyebrow mb-3">Slides · {DECK_SLIDES.length}</div>
-            <ul className="space-y-1 font-mono text-xs">
+          <div className="flex min-h-0 flex-col">
+            <div className="eyebrow mb-3 shrink-0">Slides · {DECK_SLIDES.length}</div>
+            <ul className="max-h-[7.5rem] space-y-1 overflow-y-auto overscroll-contain pr-1 font-mono text-xs">
               {DECK_SLIDES.map((s, i) => {
                 const isActive = i === idx;
                 const done = i < idx;
@@ -187,24 +187,26 @@ export default function PreviewPage() {
                         setPlaying(false);
                         setIdx(i);
                       }}
-                      className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors ${
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
                         isActive ? "bg-foreground text-background" : "hover:bg-muted"
                       }`}
                     >
-                      <span className="flex items-center gap-2">
-                        <span className={isActive ? "text-background/60" : "text-muted-foreground"}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`shrink-0 ${isActive ? "text-background/60" : "text-muted-foreground"}`}
+                        >
                           {s.n}
                         </span>
-                        <span className="font-sans font-medium">{s.title}</span>
+                        <span className="truncate font-sans font-medium">{s.title}</span>
                       </span>
                       <span
-                        className={
+                        className={`shrink-0 ${
                           isActive
                             ? "text-background/70"
                             : done
                               ? "text-foreground"
                               : "text-muted-foreground"
-                        }
+                        }`}
                       >
                         {fmt(s.durationSec)}
                       </span>

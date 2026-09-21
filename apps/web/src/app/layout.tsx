@@ -3,9 +3,9 @@ import { AuthProvider } from "@/components/auth-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Voxdeck — Give your deck a voice",
+  title: "Voxdeck — Your deck, explained in your voice.",
   description:
-    "Upload your pitch deck. Voxdeck writes the narration, records it in an AI voice, and hands you a shareable link prospects actually finish.",
+    "Turn your deck into a narrated walkthrough prospects and investors can watch on their own time.",
 };
 
 export default function RootLayout({
