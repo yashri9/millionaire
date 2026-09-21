@@ -40,7 +40,11 @@ export async function createServerClient() {
 
 /** SERVICE ROLE client — bypasses RLS. Recipient/service paths only. */
 export function createServiceClient() {
-  return createRawClient(publicEnv.supabaseUrl, serverEnv.supabaseServiceRoleKey, {
+  const key = serverEnv.supabaseServiceRoleKey.trim();
+  if (!key) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
+  }
+  return createRawClient(publicEnv.supabaseUrl.trim(), key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

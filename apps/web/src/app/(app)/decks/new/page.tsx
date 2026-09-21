@@ -94,7 +94,9 @@ export default function NewDeckPage() {
         const msg = remoteErr instanceof Error ? remoteErr.message : "";
         const fallback =
           /not authenticated|sign in|401/i.test(msg) ||
-          /could not start upload/i.test(msg);
+          /could not start upload|could not create upload url|invalid compact jws|payload too large|request entity too large|413/i.test(
+            msg,
+          );
         if (!fallback) throw remoteErr;
         if (process.env.NODE_ENV !== "production") {
           console.warn("[new-deck] server upload unavailable, parsing locally", remoteErr);
