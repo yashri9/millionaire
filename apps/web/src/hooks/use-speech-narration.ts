@@ -70,33 +70,62 @@ let audioCtx: AudioContext | null = null;
 
 export function unlockNarrationAudio(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
+  unlockNarrationAudioSync();
   return (async () => {
     try {
-      const AC =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (AC) {
-        if (!audioCtx || audioCtx.state === "closed") audioCtx = new AC();
-        if (audioCtx.state === "suspended") await audioCtx.resume();
-        const buffer = audioCtx.createBuffer(1, 1, 22050);
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioCtx.destination);
-        source.start(0);
-      }
+      if (audioCtx?.state === "suspended") await audioCtx.resume();
     } catch {
-      try {
-        const a = new Audio(SILENT_WAV);
-        a.volume = 0.001;
-        await a.play();
-        a.pause();
-      } catch {
-        /* ignore */
-      }
+      /* ignore */
     }
   })();
 }
+
+/**
+ * Must run synchronously inside click/touchend — WebKit loses gesture
+ * privilege across await / setTimeout.
+ */
+export function unlockNarrationAudioSync(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const AC =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (AC) {
+      if (!audioCtx || audioCtx.state === "closed") audioCtx = new AC();
+      void audioCtx.resume();
+      const buffer = audioCtx.createBuffer(1, 1, 22050);
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start(0);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const a = getSharedAudio();
+    if (a) {
+      const prev = a.src;
+      a.src = SILENT_WAV;
+      a.volume = 0.001;
+      void a.play().then(() => {
+        a.pause();
+        try {
+          a.currentTime = 0;
+        } catch {
+          /* ignore */
+        }
+        if (prev) a.src = prev;
+      }).catch(() => {
+        /* ignore */
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 
 export async function playObjectUrl(
   audio: HTMLAudioElement,
@@ -317,7 +346,7 @@ export function useSpeechNarration(
     (scriptOverride?: string) => {
       const text = (scriptOverride ?? scriptRef.current).trim();
       if (!text) return;
-      void unlockNarrationAudio();
+      unlockNarrationAudioSync();
       hardStop();
       const gen = ++genRef.current;
       const settings = getVoiceSettings();

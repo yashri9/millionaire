@@ -1,6 +1,6 @@
 /**
  * Centralized deck autosave — revision sequencing + status state machine.
- * Persistence target is pluggable (localStorage today; API later).
+ * Persistence target: Supabase via persistCloudDeckRevision (local cache secondary).
  */
 
 export const AUTOSAVE_DEBOUNCE_MS = 1000;

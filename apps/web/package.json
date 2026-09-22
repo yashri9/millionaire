@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/deck-autosave.test.ts src/lib/playback-state.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/deck-autosave.test.ts src/lib/playback-state.test.ts src/lib/deck-id.test.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.68.0",
@@ -21,6 +21,7 @@
     "@voxdeck/narration": "*",
     "@voxdeck/ui": "*",
     "clsx": "^2.1.1",
+    "dexie": "^4.4.6",
     "motion": "^12.42.2",
     "next": "15.5.9",
     "pdf-parse": "^1.1.1",
@@ -30,6 +31,7 @@
     "resend": "^4.6.0",
     "tailwind-merge": "^3.6.0",
     "tesseract.js": "^5.1.1",
+    "tus-js-client": "^4.3.1",
     "yauzl": "^3.4.0",
     "zod": "^3.25.76"
   },

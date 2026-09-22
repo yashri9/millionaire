@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/shell";
-import { Waveform } from "@/components/ui-kit";
-import { getDeck, loadSlidesFor } from "@/lib/deck-store";
+import { Button, Waveform } from "@/components/ui-kit";
+import { getCachedDeck, type DeckSlide } from "@/lib/deck-store";
 import { getAllHighlights, useHighlights } from "@/lib/highlight-store";
 import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
 import { SlidePlaybackStage } from "@/components/highlights/SlidePlaybackStage";
@@ -13,7 +13,9 @@ import { getPlaybackState } from "@/lib/playback-state";
 import {
   useSpeechNarration,
   usePrefetchNarration,
+  unlockNarrationAudioSync,
 } from "@/hooks/use-speech-narration";
+import { useHydrateDeck } from "@/hooks/use-hydrate-deck";
 
 function fmt(s: number) {
   const n = Math.max(0, Math.floor(s));
@@ -23,21 +25,37 @@ function fmt(s: number) {
 export default function PreviewPage() {
   const params = useParams();
   const id = String(params.id ?? "");
-  const [DECK_SLIDES, setDeckSlides] = useState<
-    ReturnType<typeof loadSlidesFor>["slides"]
-  >([]);
+  const [DECK_SLIDES, setDeckSlides] = useState<DeckSlide[]>([]);
   const [revision, setRevision] = useState(0);
   const [idx, setIdx] = useState(0);
   const [enlarged, setEnlarged] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const deckFrameRef = useRef<HTMLDivElement>(null);
-  const narrationRef = useRef<{ pause: () => void; start: () => void; restart: () => void } | null>(null);
+  const narrationRef = useRef<{
+    pause: () => void;
+    start: (scriptOverride?: string) => void;
+    restart: () => void;
+  } | null>(null);
+
+  const { state: hydrateState, reload } = useHydrateDeck(id);
 
   useEffect(() => {
-    const loaded = loadSlidesFor(id);
-    setDeckSlides(loaded.slides);
-    setRevision(loaded.revision);
-    // Ensure working highlight copy is seeded from deck document
-    const deck = getDeck(id);
+    if (hydrateState.status === "loading") {
+      setHydrated(false);
+      return;
+    }
+    if (hydrateState.status === "error") {
+      setLoadError(hydrateState.error);
+      setDeckSlides([]);
+      setHydrated(true);
+      return;
+    }
+    setDeckSlides(hydrateState.deck.slides);
+    setRevision(hydrateState.deck.revision ?? 0);
+    setLoadError(null);
+    setHydrated(true);
+    const deck = getCachedDeck(id) ?? hydrateState.deck;
     if (deck?.highlights) {
       const working = getAllHighlights(id);
       if (Object.keys(working).length === 0 && Object.keys(deck.highlights).length > 0) {
@@ -51,7 +69,7 @@ export default function PreviewPage() {
         }
       }
     }
-  }, [id]);
+  }, [hydrateState, id]);
 
   const active = DECK_SLIDES[idx] ?? DECK_SLIDES[0];
   const totalDur = DECK_SLIDES.reduce((a, s) => a + s.durationSec, 0);
@@ -62,12 +80,13 @@ export default function PreviewPage() {
   const advanceOrStop = useCallback(() => {
     setIdx((i) => {
       if (i < DECK_SLIDES.length - 1) {
-        window.setTimeout(() => narrationRef.current?.start(), 40);
+        const next = DECK_SLIDES[i + 1];
+        narrationRef.current?.start(next?.script ?? "");
         return i + 1;
       }
       return i;
     });
-  }, [DECK_SLIDES.length]);
+  }, [DECK_SLIDES]);
 
   const narration = useSpeechNarration(active?.script ?? "", advanceOrStop);
   narrationRef.current = narration;
@@ -144,6 +163,35 @@ export default function PreviewPage() {
       document.removeEventListener("fullscreenchange", onFs);
     };
   }, [enlarged, exitEnlarge]);
+
+  if (!hydrated || hydrateState.status === "loading") {
+    return (
+      <AppShell variant="app">
+        <div className="p-8 text-sm text-muted-foreground">Loading deck…</div>
+      </AppShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppShell variant="app">
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
+          <p className="font-display text-2xl font-bold tracking-tight">Couldn&apos;t open preview</p>
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <div className="flex gap-3">
+            <Button type="button" onClick={() => void reload()}>
+              Retry
+            </Button>
+            <Link href="/dashboard">
+              <Button type="button" variant="secondary">
+                Back to decks
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!active) {
     return (
@@ -338,7 +386,8 @@ export default function PreviewPage() {
                 onClick={() => {
                   narration.pause();
                   setIdx(0);
-                  window.setTimeout(() => narration.restart(), 40);
+                  unlockNarrationAudioSync();
+                  narration.restart();
                 }}
                 className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
               >

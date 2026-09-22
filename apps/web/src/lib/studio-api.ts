@@ -43,6 +43,7 @@ export function storedDeckFromServer(payload: ServerDeckPayload): StoredDeck {
       durationSec: estimateDuration(script),
       thumbnail: s.thumb_url || s.image_url || undefined,
       pageText,
+      serverSlideId: s.id,
     };
   });
   return {
@@ -52,7 +53,9 @@ export function storedDeckFromServer(payload: ServerDeckPayload): StoredDeck {
     updatedAt: payload.deck.updated_at
       ? Date.parse(payload.deck.updated_at)
       : Date.now(),
+    serverUpdatedAt: payload.deck.updated_at,
     revision: 0,
+    persistence: "cloud",
     slides,
     highlights: {},
   };

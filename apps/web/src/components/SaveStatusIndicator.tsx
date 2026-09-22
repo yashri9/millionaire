@@ -70,16 +70,17 @@ export function SaveStatusIndicator({
   // error
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700"
+      className="inline-flex max-w-[14rem] items-center gap-1.5 text-xs font-medium text-red-700"
+      title={lastError ?? undefined}
       data-save-status="error"
     >
       <span aria-hidden>⚠</span>
-      Save failed
+      <span className="truncate">{lastError || "Unable to save"}</span>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="ml-1 rounded-full border border-red-300 px-2 py-0.5 text-[10px] font-semibold hover:bg-red-50"
+          className="ml-1 shrink-0 rounded-full border border-red-300 px-2 py-0.5 text-[10px] font-semibold hover:bg-red-50"
         >
           Retry
         </button>

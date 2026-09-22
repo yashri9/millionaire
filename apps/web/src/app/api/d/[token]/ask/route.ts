@@ -2,26 +2,47 @@ import { NextResponse } from "next/server";
 import { getPublishedDeckByToken } from "@/lib/recipient";
 import { answerQuestion, escalationLine, type AskResult } from "@/lib/prompts";
 import { createServiceClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured, publicEnv } from "@/lib/env";
 import { ASK_LIMIT, isOverLimit, overLimitMessage } from "@/lib/rateLimit";
+import { checkRateLimit, clientIp, rateLimitHeaders } from "@/lib/rate-limit";
+import { enqueueJob } from "@/lib/jobs";
+import { timingSafeEqual } from "crypto";
 
 type Ctx = { params: Promise<{ token: string }> };
 
+function tokensEqual(a: string, b: string): boolean {
+  try {
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    if (ba.length !== bb.length) return false;
+    return timingSafeEqual(ba, bb);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * POST /api/d/:token/ask — grounded Q&A (PUBLIC, no login).
- *
- * Ported discipline from the FastAPI prototype (PRD §4.12 / §8 / §11.6):
- *  - answer ONLY from the deck; if unsure, escalate (handled in the prompt)
- *  - the recipient must NEVER see a raw error — ANY failure (LLM down, bad
- *    JSON, missing key) falls back to a warm hand-off escalation
- *  - rate-limit per session (default 20) → graceful "continue over email"
- *
- * This route is intentionally the most complete recipient endpoint. Session
- * creation + persisting the question/escalation notification are wired where
- * Supabase is configured; otherwise it still answers (LLM only).
  */
 export async function POST(req: Request, { params }: Ctx) {
   const { token } = await params;
+  const ip = clientIp(req);
+
+  // IP + token abuse protection (in addition to per-session question cap).
+  const ipLimit = await checkRateLimit(`ask:ip:${ip}`, 30, 60);
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly.", rate_limited: true },
+      { status: 429, headers: rateLimitHeaders(ipLimit) },
+    );
+  }
+  const tokenLimit = await checkRateLimit(`ask:token:${token}`, 60, 60);
+  if (!tokenLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests for this deck. Please try again shortly.", rate_limited: true },
+      { status: 429, headers: rateLimitHeaders(tokenLimit) },
+    );
+  }
 
   let question = "";
   let sessionId: string | null = null;
@@ -35,19 +56,28 @@ export async function POST(req: Request, { params }: Ctx) {
 
   const lookup = await getPublishedDeckByToken(token);
   if (!lookup.ok) {
-    // In unconfigured dev mode there is no deck; still answer politely.
+    const fail = await checkRateLimit(`ask:invalid:${ip}`, 10, 300);
+    if (!fail.allowed) {
+      return NextResponse.json(
+        { active: false, reason: "rate_limited" },
+        { status: 429, headers: rateLimitHeaders(fail) },
+      );
+    }
     if (lookup.reason === "unconfigured") {
       return NextResponse.json(escalationResult("the rep"));
     }
     return NextResponse.json({ active: false, reason: lookup.reason }, { status: 404 });
   }
   const deck = lookup.deck;
+  // Soft constant-time compare against returned token when present.
+  if (deck.token && !tokensEqual(deck.token, token)) {
+    return NextResponse.json({ active: false, reason: "not_found" }, { status: 404 });
+  }
 
   if (!question) {
     return NextResponse.json(escalationResult(deck.repName));
   }
 
-  // Rate limit per session (PRD §11.6) — best-effort where DB is available.
   if (isSupabaseConfigured() && sessionId) {
     try {
       const db = createServiceClient();
@@ -66,11 +96,10 @@ export async function POST(req: Request, { params }: Ctx) {
         });
       }
     } catch {
-      /* non-fatal — never block a recipient on a counting error */
+      /* non-fatal */
     }
   }
 
-  // Grounded answer; auto-escalate on ANY failure (never surface a raw error).
   let result: AskResult;
   try {
     result = await answerQuestion(question, deck.slides, deck.repName);
@@ -78,7 +107,6 @@ export async function POST(req: Request, { params }: Ctx) {
     result = escalationResult(deck.repName);
   }
 
-  // Persist question + escalation notification where possible (non-fatal).
   if (isSupabaseConfigured() && sessionId) {
     try {
       const db = createServiceClient();
@@ -90,14 +118,44 @@ export async function POST(req: Request, { params }: Ctx) {
         confidence: result.confidence,
         slide_ref: result.slide_ref,
       });
-      // TODO(phase1): on escalate, insert an events row (type=escalated) and
-      // send the escalation email (lib/email.sendEscalationEmail) to the owner.
+
+      if (result.escalate) {
+        await db.from("events").insert({
+          session_id: sessionId,
+          type: "escalated",
+          payload: { question },
+        });
+
+        const ownerEmail = deck.ownerEmail;
+        if (ownerEmail) {
+          await enqueueJob(
+            "escalation_notify",
+            deck.deckId,
+            {
+              to: ownerEmail,
+              repName: deck.repName,
+              question,
+              analyticsUrl: `${publicEnv.appUrl}/decks/${deck.deckId}/analytics`,
+            },
+            "escalation_notify",
+          );
+          try {
+            const secret = process.env.CRON_SECRET || "";
+            void fetch(`${publicEnv.appUrl}/api/jobs/run`, {
+              method: "POST",
+              headers: secret ? { authorization: `Bearer ${secret}` } : {},
+            });
+          } catch {
+            /* cron will pick up */
+          }
+        }
+      }
     } catch {
       /* non-fatal */
     }
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, { headers: rateLimitHeaders(tokenLimit) });
 }
 
 function escalationResult(repName: string): AskResult {

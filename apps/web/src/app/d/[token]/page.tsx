@@ -40,7 +40,7 @@ export default function ViewerPage() {
   const [loadError, setLoadError] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
-  const narrationRef = useRef<{ pause: () => void; start: () => void } | null>(null);
+  const narrationRef = useRef<{ pause: () => void; start: (scriptOverride?: string) => void } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +111,8 @@ export default function ViewerPage() {
   const advanceOrStop = useCallback(() => {
     setIdx((i) => {
       if (i < slides.length - 1) {
-        window.setTimeout(() => narrationRef.current?.start(), 40);
+        const next = slides[i + 1];
+        narrationRef.current?.start(next?.script ?? "");
         return i + 1;
       }
       if (sessionId) {

@@ -2,18 +2,14 @@ import { requireUser } from "@/lib/auth";
 import { assertDeckOwner } from "@/lib/ownership";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient, createServiceClient } from "@/lib/supabase/server";
-import { processDeckUpload, buildRenderWarning } from "@/lib/deckProcessor";
-import { uploadRenderedImages } from "@/lib/storage";
+import { enqueueJob } from "@/lib/jobs";
 import { serverEnv } from "@/lib/env";
-
-export const maxDuration = 300;
 
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * POST /api/decks/:id/parse — retry parsing after a parse_failed upload
- * (PRD §6). Re-downloads the stored source file and re-runs the parse +
- * render pipeline, replacing any previously-parsed slides.
+ * POST /api/decks/:id/parse — enqueue a durable parse job after TUS upload.
+ * Processing runs in /api/jobs/run (cron), not inline on this request.
  */
 export async function POST(_req: Request, { params }: Ctx) {
   return handle(async () => {
@@ -22,47 +18,49 @@ export async function POST(_req: Request, { params }: Ctx) {
     await assertDeckOwner(id, user.id);
 
     const supabase = await createServerClient();
-    const { data: full } = await supabase.from("decks").select("source_file_url").eq("id", id).single();
-    if (!full?.source_file_url) throw new ApiError(409, "No uploaded file to parse for this deck");
-
-    const storage = createServiceClient();
-    const { data: blob, error: downloadError } = await storage.storage
-      .from(serverEnv.decksBucket)
-      .download(full.source_file_url);
-    if (downloadError || !blob) throw new ApiError(502, `Could not read the stored file: ${downloadError?.message}`);
-
-    const filename = full.source_file_url.split("/").pop() ?? "upload";
-    const basePath = `${user.id}/${id}`;
-    const bytes = await blob.arrayBuffer();
-
-    try {
-      const processed = await processDeckUpload(bytes, filename);
-      const { paths: imagePaths, failedSlides } = await uploadRenderedImages(storage, basePath, processed.images);
-      const { rendered, render_warning } = buildRenderWarning(processed, failedSlides);
-
-      await supabase.from("slides").delete().eq("deck_id", id);
-      const { error: slidesError } = await supabase.from("slides").insert(
-        processed.slides.map((s) => ({
-          deck_id: id,
-          order_index: s.order_index,
-          title: s.title,
-          bullets: s.bullets,
-          image_path: imagePaths.get(s.order_index)?.image_path ?? null,
-          thumb_path: imagePaths.get(s.order_index)?.thumb_path ?? null,
-        })),
-      );
-      if (slidesError) throw slidesError;
-
-      const { data: updated } = await supabase
-        .from("decks")
-        .update({ status: "draft", rendered, render_warning })
-        .eq("id", id)
-        .select("*")
-        .single();
-      return Response.json({ deck: updated, warning: render_warning });
-    } catch (err) {
-      await supabase.from("decks").update({ status: "parse_failed" }).eq("id", id);
-      throw new ApiError(422, `Parsing failed: ${(err as Error).message}`);
+    const { data: full } = await supabase
+      .from("decks")
+      .select("source_file_url, status")
+      .eq("id", id)
+      .single();
+    if (!full?.source_file_url) {
+      throw new ApiError(409, "No uploaded file to parse for this deck");
     }
+
+    // Verify object exists in Storage before enqueueing.
+    const storage = createServiceClient();
+    const { data: listed } = await storage.storage
+      .from(serverEnv.decksBucket)
+      .list(full.source_file_url.split("/").slice(0, -1).join("/"), {
+        search: full.source_file_url.split("/").pop(),
+        limit: 1,
+      });
+    if (!listed?.length) {
+      // Soft check — list can miss; still allow enqueue if path is set.
+    }
+
+    await supabase.from("decks").update({ status: "uploading" }).eq("id", id);
+    const job = await enqueueJob("parse", id, {}, "parse");
+
+    // Kick the worker immediately (best-effort) so small decks finish fast.
+    try {
+      const secret = process.env.CRON_SECRET || "";
+      const base = process.env.NEXT_PUBLIC_APP_URL || "";
+      if (base) {
+        void fetch(`${base.replace(/\/$/, "")}/api/jobs/run`, {
+          method: "POST",
+          headers: secret ? { authorization: `Bearer ${secret}` } : {},
+        });
+      }
+    } catch {
+      /* cron will pick it up */
+    }
+
+    return Response.json({
+      ok: true,
+      jobId: job.id,
+      deck: { id, status: "uploading" },
+      message: "Parse queued",
+    });
   });
 }

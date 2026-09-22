@@ -15,7 +15,7 @@ export async function assertDeckOwner(deckId: string, userId: string) {
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("decks")
-    .select("id, user_id, status, deleted_at")
+    .select("id, user_id, status, deleted_at, updated_at, title")
     .eq("id", deckId)
     .is("deleted_at", null)
     .single();

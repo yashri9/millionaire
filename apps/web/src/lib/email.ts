@@ -43,8 +43,37 @@ export async function sendEmail(msg: EmailMessage): Promise<EmailResult> {
   }
 
   if (provider === "postmark") {
-    // TODO: implement Postmark transport (fetch https://api.postmarkapp.com/email).
-    return { status: "failed", error: "Postmark not implemented yet" };
+    if (!serverEnv.postmarkToken) {
+      return { status: "failed", error: "POSTMARK_SERVER_TOKEN missing" };
+    }
+    try {
+      const res = await fetch("https://api.postmarkapp.com/email", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Postmark-Server-Token": serverEnv.postmarkToken,
+        },
+        body: JSON.stringify({
+          From: serverEnv.emailFrom,
+          To: msg.to,
+          Subject: msg.subject,
+          HtmlBody: msg.html,
+          TextBody: msg.text ?? msg.html.replace(/<[^>]+>/g, ""),
+          MessageStream: "outbound",
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        MessageID?: string;
+        Message?: string;
+      };
+      if (!res.ok) {
+        return { status: "failed", error: data.Message || `Postmark ${res.status}` };
+      }
+      return { status: "sent", id: data.MessageID };
+    } catch (e) {
+      return { status: "failed", error: (e as Error).message };
+    }
   }
 
   // dev fallback — never throws, just logs.

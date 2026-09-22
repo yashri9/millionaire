@@ -29,9 +29,28 @@ export type RenderedPage = {
   thumbPng: Buffer;
 };
 
-const TARGET_WIDTH = 720;
-const THUMB_SCALE = 0.45;
+const TARGET_WIDTH = 1600;
+const THUMB_SCALE = 0.25;
 export const MAX_PAGES = 60;
+
+async function encodePreferWebp(canvas: {
+  // napi-rs Canvas overloads are awkward to type — accept the runtime object.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  toBuffer: (...args: any[]) => Buffer;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  encode?: (...args: any[]) => Promise<Buffer>;
+}): Promise<Buffer> {
+  try {
+    if (canvas.encode) return await canvas.encode("webp", 82);
+  } catch {
+    /* fall through */
+  }
+  try {
+    return canvas.toBuffer("image/webp", 82);
+  } catch {
+    return canvas.toBuffer("image/png");
+  }
+}
 
 export async function findSoffice(): Promise<string | null> {
   if (serverEnv.sofficePath) {
@@ -137,8 +156,8 @@ export async function renderPdfPages(pdfBytes: ArrayBuffer): Promise<RenderedPag
 
     pages.push({
       order_index: i,
-      imagePng: fullCanvas.toBuffer("image/png"),
-      thumbPng: thumbCanvas.toBuffer("image/png"),
+      imagePng: await encodePreferWebp(fullCanvas),
+      thumbPng: await encodePreferWebp(thumbCanvas),
     });
   }
   await doc.cleanup();

@@ -2,14 +2,6 @@ import "server-only";
 
 /**
  * recipient.ts — server-side lookup for the public /d/[token] runtime.
- *
- * Uses the SERVICE ROLE client (bypasses RLS) because the recipient has no
- * login. Only ever returns PUBLISHED content for an ACTIVE share, and only the
- * fields a prospect should see — never deck ownership internals.
- *
- * Shared by the recipient page (SSR) and the /api/d/[token] routes so the
- * "active share -> published version -> slides + narration" resolution lives
- * in exactly one place.
  */
 import { createServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -20,6 +12,7 @@ export type RecipientDeck = {
   shareId: string;
   scriptVersionId: string;
   repName: string;
+  ownerEmail: string | null;
   title: string;
   slides: {
     index: number;
@@ -36,7 +29,6 @@ export type RecipientLookup =
   | { ok: true; deck: RecipientDeck }
   | { ok: false; reason: "inactive" | "not_found" | "unconfigured" };
 
-/** Creates a session row for a fresh recipient page view (PRD §4.10/§4.12). */
 export async function createSession(shareId: string): Promise<string | null> {
   const db = createServiceClient();
   const { data, error } = await db.from("sessions").insert({ share_id: shareId }).select("id").single();
@@ -59,12 +51,30 @@ export async function getPublishedDeckByToken(token: string): Promise<RecipientL
   if (share.status !== "active") return { ok: false, reason: "inactive" };
 
   const [{ data: deck }, { data: slides }, { data: version }] = await Promise.all([
-    db.from("decks").select("id, title").eq("id", share.deck_id).single(),
-    db.from("slides").select("order_index, title, bullets, id, image_path, thumb_path").eq("deck_id", share.deck_id).order("order_index"),
+    db.from("decks").select("id, title, user_id").eq("id", share.deck_id).single(),
+    db
+      .from("slides")
+      .select("order_index, title, bullets, id, image_path, thumb_path")
+      .eq("deck_id", share.deck_id)
+      .order("order_index"),
     db.from("script_versions").select("narration").eq("id", share.script_version_id).single(),
   ]);
 
   if (!deck || !slides) return { ok: false, reason: "not_found" };
+
+  const { data: profile } = await db
+    .from("profiles")
+    .select("name")
+    .eq("id", deck.user_id)
+    .maybeSingle();
+
+  let ownerEmail: string | null = null;
+  try {
+    const { data: userData } = await db.auth.admin.getUserById(deck.user_id);
+    ownerEmail = userData.user?.email ?? null;
+  } catch {
+    ownerEmail = null;
+  }
 
   const narrationBySlide = new Map<string, string>(
     (version?.narration ?? []).map((n: { slide_id: string; text: string }) => [n.slide_id, n.text]),
@@ -77,18 +87,27 @@ export async function getPublishedDeckByToken(token: string): Promise<RecipientL
       deckId: deck.id,
       shareId: share.id,
       scriptVersionId: share.script_version_id,
-      // rep_name lives on the sender profile in the real build; TODO wire it.
-      repName: "the rep",
+      repName: profile?.name || "the rep",
+      ownerEmail,
       title: deck.title,
-      slides: slides.map((s: { order_index: number; title: string; bullets: string[]; id: string; image_path: string | null; thumb_path: string | null }) => ({
-        index: s.order_index,
-        title: s.title,
-        bullets: s.bullets ?? [],
-        narration: narrationBySlide.get(s.id) ?? "",
-        text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
-        image_path: s.image_path,
-        thumb_path: s.thumb_path,
-      })),
+      slides: slides.map(
+        (s: {
+          order_index: number;
+          title: string;
+          bullets: string[];
+          id: string;
+          image_path: string | null;
+          thumb_path: string | null;
+        }) => ({
+          index: s.order_index,
+          title: s.title,
+          bullets: s.bullets ?? [],
+          narration: narrationBySlide.get(s.id) ?? "",
+          text: [s.title, ...(s.bullets ?? [])].filter(Boolean).join("\n"),
+          image_path: s.image_path,
+          thumb_path: s.thumb_path,
+        }),
+      ),
     },
   };
 }

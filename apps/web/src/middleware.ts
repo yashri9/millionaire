@@ -1,8 +1,40 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+function securityHeaders(response: NextResponse) {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  response.headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains",
+  );
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()",
+  );
+  // Tight enough for studio + recipient; allow self, supabase storage, and data/blob for audio.
+  response.headers.set(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://*.supabase.co https://*.storage.supabase.co",
+      "media-src 'self' data: blob: https://*.supabase.co https://*.storage.supabase.co",
+      "connect-src 'self' https://*.supabase.co https://*.storage.supabase.co wss://*.supabase.co https://api.elevenlabs.io https://api.groq.com https://api.x.ai https://api.anthropic.com",
+      "font-src 'self' data:",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  );
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
-  return updateSession(request);
+  const response = await updateSession(request);
+  return securityHeaders(response);
 }
 
 export const config = {

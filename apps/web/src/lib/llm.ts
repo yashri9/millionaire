@@ -135,42 +135,55 @@ export async function callLLM(
   maxTokens = 1200,
   options?: CallLLMOptions,
 ): Promise<string> {
+  const { withRetry } = await import("@/lib/provider-resilience");
+  const { trackPipelineEvent } = await import("@/lib/observe");
   const provider = serverEnv.llmProvider;
-  const temperature = options?.temperature ?? 0.35;
 
-  if (provider === "anthropic") {
-    if (!serverEnv.anthropicApiKey)
-      throw new LLMError(503, "ANTHROPIC_API_KEY is not set");
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": serverEnv.anthropicApiKey,
-        "anthropic-version": serverEnv.anthropicVersion,
-      },
-      body: JSON.stringify({
-        model: serverEnv.anthropicModel,
-        max_tokens: maxTokens,
-        temperature,
-        system,
-        messages: [{ role: "user", content: user }],
-      }),
+  try {
+    return await withRetry(provider, async () => {
+      const temperature = options?.temperature ?? 0.35;
+
+      if (provider === "anthropic") {
+        if (!serverEnv.anthropicApiKey)
+          throw new LLMError(503, "ANTHROPIC_API_KEY is not set");
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": serverEnv.anthropicApiKey,
+            "anthropic-version": serverEnv.anthropicVersion,
+          },
+          body: JSON.stringify({
+            model: serverEnv.anthropicModel,
+            max_tokens: maxTokens,
+            temperature,
+            system,
+            messages: [{ role: "user", content: user }],
+          }),
+        });
+        if (!r.ok)
+          throw new LLMError(502, `Anthropic API error ${r.status}: ${(await r.text()).slice(0, 200)}`);
+        const data = await r.json();
+        const block = (data.content ?? []).find((b: { type: string }) => b.type === "text");
+        if (!block) throw new LLMError(502, "No text response from model");
+        return stripFences(block.text);
+      }
+
+      const cfg = openAICompatConfig();
+      if (!cfg) {
+        const missing =
+          provider === "groq"
+            ? "GROQ_API_KEY is not set"
+            : "XAI_API_KEY is not set (xAI Grok)";
+        throw new LLMError(503, missing);
+      }
+      return callOpenAICompatible(cfg, system, user, maxTokens, options);
     });
-    if (!r.ok)
-      throw new LLMError(502, `Anthropic API error ${r.status}: ${(await r.text()).slice(0, 200)}`);
-    const data = await r.json();
-    const block = (data.content ?? []).find((b: { type: string }) => b.type === "text");
-    if (!block) throw new LLMError(502, "No text response from model");
-    return stripFences(block.text);
+  } catch (err) {
+    trackPipelineEvent("llm_fallback_used", {
+      provider,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
   }
-
-  const cfg = openAICompatConfig();
-  if (!cfg) {
-    const missing =
-      provider === "groq"
-        ? "GROQ_API_KEY is not set"
-        : "XAI_API_KEY is not set (xAI Grok)";
-    throw new LLMError(503, missing);
-  }
-  return callOpenAICompatible(cfg, system, user, maxTokens, options);
 }

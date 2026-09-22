@@ -1,48 +1,99 @@
-// Client-side deck store — persists uploaded decks in localStorage per-id.
+/**
+ * Client deck store — Supabase is the canonical source of truth.
+ * localStorage is only a cache (cloud decks) or an explicit device-draft layer.
+ */
 import type { SeedSlide } from "@/lib/deck-seed";
 import type { GenerationMethod, SlideContent } from "@voxdeck/narration";
 import type { Highlight } from "@/lib/highlight-store";
+import {
+  loadServerDeck,
+  storedDeckFromServer,
+  type ServerDeckPayload,
+} from "@/lib/studio-api";
 
 export type SlideWord = {
   text: string;
-  x: number; // 0..1 (left, from top-left origin)
-  y: number; // 0..1 (top)
-  w: number; // 0..1
-  h: number; // 0..1
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 };
 
 export type DeckSlide = SeedSlide & {
-  /** Pitch-critical claims for this slide (editable). */
   essentialPoints?: string[];
-  thumbnail?: string; // data URL of rendered page (small)
-  pageText?: string; // original extracted text
-  words?: SlideWord[]; // word-level bboxes from the PDF text layer
-  /** Structured content used for grounded generation. */
+  thumbnail?: string;
+  pageText?: string;
+  words?: SlideWord[];
   slideContent?: SlideContent;
-  /** How the current script was produced. */
   generationMethod?: GenerationMethod;
-  /** Gate / fallback notes (number-mismatch, chart-bridge, etc.). */
   lowConfidenceFlags?: string[];
+  /** Postgres slides.id — required for cloud script PATCH. */
+  serverSlideId?: string;
 };
+
+export type DeckPersistence = "cloud" | "local_draft";
 
 export type StoredDeck = {
   id: string;
   title: string;
   createdAt: number;
-  /** Monotonic persistence revision — bumped on every successful save. */
   revision?: number;
   updatedAt?: number;
+  /** ISO timestamp from decks.updated_at — used for stale-write detection. */
+  serverUpdatedAt?: string;
+  persistence?: DeckPersistence;
   slides: DeckSlide[];
-  /**
-   * Highlights keyed by slide number (`"01"`, …).
-   * Single source of truth when present; legacy `voxdeck:highlights:*` is migrated in.
-   */
   highlights?: Record<string, Highlight[]>;
 };
 
+export type DeckIndexEntry = {
+  id: string;
+  title: string;
+  createdAt: number;
+  count: number;
+  persistence?: DeckPersistence;
+};
+
+const CACHE_VERSION = 2;
 const KEY_DECK = (id: string) => `voxdeck:deck:${id}`;
 const KEY_INDEX = "voxdeck:decks";
+const KEY_CACHE_META = "voxdeck:cache-meta";
 const KEY_HIGHLIGHTS_LEGACY = (id: string) => `voxdeck:highlights:${id}`;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isCloudDeckId(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
+export function isLocalDraftId(id: string): boolean {
+  return id.startsWith("local:") || !isCloudDeckId(id);
+}
+
+export function persistenceOf(deck: Pick<StoredDeck, "id" | "persistence">): DeckPersistence {
+  if (deck.persistence) return deck.persistence;
+  return isCloudDeckId(deck.id) ? "cloud" : "local_draft";
+}
+
+function ensureCacheVersion() {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(KEY_CACHE_META);
+    const meta = raw ? (JSON.parse(raw) as { version?: number }) : null;
+    if (meta?.version === CACHE_VERSION) return;
+    localStorage.setItem(KEY_CACHE_META, JSON.stringify({ version: CACHE_VERSION }));
+    // Re-tag index entries with persistence without wiping user drafts.
+    const list = listCachedIndex();
+    const next = list.map((d) => ({
+      ...d,
+      persistence: d.persistence ?? (isCloudDeckId(d.id) ? "cloud" : "local_draft"),
+    }));
+    localStorage.setItem(KEY_INDEX, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
 
 function readLegacyHighlights(id: string): Record<string, Highlight[]> {
   try {
@@ -58,7 +109,6 @@ function normalizeDeck(deck: StoredDeck): StoredDeck {
   if (Object.keys(highlights).length === 0) {
     highlights = readLegacyHighlights(deck.id);
   } else {
-    // Seed legacy working copy once so editor/preview share the same key
     try {
       const legacy = localStorage.getItem(KEY_HIGHLIGHTS_LEGACY(deck.id));
       if (!legacy) {
@@ -70,6 +120,7 @@ function normalizeDeck(deck: StoredDeck): StoredDeck {
   }
   return {
     ...deck,
+    persistence: persistenceOf(deck),
     revision: deck.revision ?? 0,
     updatedAt: deck.updatedAt ?? deck.createdAt,
     highlights,
@@ -80,7 +131,7 @@ function normalizeDeck(deck: StoredDeck): StoredDeck {
 const STORAGE_BUDGET_BYTES = 4.5 * 1024 * 1024;
 
 export const DECK_SAVE_QUOTA_MESSAGE =
-  "This deck is too large to save in this browser. Try a shorter PDF, or remove unused decks and retry.";
+  "This deck is too large to save on this device. Try a shorter PDF, or remove unused device drafts and retry.";
 
 export class DeckStorageError extends Error {
   constructor(message = DECK_SAVE_QUOTA_MESSAGE) {
@@ -144,21 +195,37 @@ function writeLocalStorage(key: string, value: string) {
   }
 }
 
-export function saveDeck(deck: StoredDeck) {
-  const next: StoredDeck = {
+function listCachedIndex(): DeckIndexEntry[] {
+  try {
+    ensureCacheVersion();
+    const raw = localStorage.getItem(KEY_INDEX);
+    return raw ? (JSON.parse(raw) as DeckIndexEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeIndex(list: DeckIndexEntry[]) {
+  writeLocalStorage(KEY_INDEX, JSON.stringify(list));
+  window.dispatchEvent(new CustomEvent("voxdeck:decks"));
+}
+
+/** Cache a deck after a successful server load/save. */
+export function cacheDeck(deck: StoredDeck) {
+  ensureCacheVersion();
+  const next = normalizeDeck({
     ...deck,
-    revision: deck.revision ?? 0,
-    updatedAt: deck.updatedAt ?? Date.now(),
-    highlights: deck.highlights ?? {},
-  };
+    persistence: deck.persistence ?? (isCloudDeckId(deck.id) ? "cloud" : "local_draft"),
+  });
   const deckValue = JSON.stringify(next);
   const highlightsValue = JSON.stringify(next.highlights ?? {});
-  const list = listDecks().filter((d) => d.id !== next.id);
+  const list = listCachedIndex().filter((d) => d.id !== next.id);
   list.unshift({
     id: next.id,
     title: next.title,
-    createdAt: next.createdAt,
+    createdAt: next.updatedAt ?? next.createdAt,
     count: next.slides.length,
+    persistence: next.persistence,
   });
   const indexValue = JSON.stringify(list);
 
@@ -169,18 +236,322 @@ export function saveDeck(deck: StoredDeck) {
   ]);
 
   writeLocalStorage(KEY_DECK(next.id), deckValue);
-  // Keep legacy highlight key in sync for older readers
   writeLocalStorage(KEY_HIGHLIGHTS_LEGACY(next.id), highlightsValue);
   writeLocalStorage(KEY_INDEX, indexValue);
   window.dispatchEvent(new CustomEvent("voxdeck:decks"));
   window.dispatchEvent(
     new CustomEvent("voxdeck:highlights", { detail: { deckId: next.id } }),
   );
+  // Best-effort IndexedDB mirror for large decks (P2).
+  void import("@/lib/idb-deck-cache")
+    .then((m) => m.idbPutDeck(next))
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 /**
- * Persist a full deck snapshot at a specific local revision.
- * Returns the new stored revision (server/local confirmation).
+ * @deprecated Prefer cacheDeck / saveLocalDraft. Kept for call sites that
+ * intentionally write the local cache layer.
+ */
+export function saveDeck(deck: StoredDeck) {
+  cacheDeck(deck);
+}
+
+/** Explicit device-draft save — never presented as a cloud deck. */
+export function saveLocalDraft(deck: Omit<StoredDeck, "persistence" | "id"> & { id?: string }) {
+  const id = deck.id?.startsWith("local:")
+    ? deck.id
+    : `local:${Math.random().toString(36).slice(2, 10)}`;
+  const next: StoredDeck = {
+    ...deck,
+    id,
+    persistence: "local_draft",
+    revision: deck.revision ?? 0,
+    updatedAt: deck.updatedAt ?? Date.now(),
+    highlights: deck.highlights ?? {},
+  };
+  cacheDeck(next);
+  return next;
+}
+
+/** Read cache only — does not hit the network. */
+export function getCachedDeck(id: string): StoredDeck | null {
+  if (typeof window === "undefined") return null;
+  try {
+    ensureCacheVersion();
+    const raw = localStorage.getItem(KEY_DECK(id));
+    if (!raw) return null;
+    return normalizeDeck(JSON.parse(raw) as StoredDeck);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @deprecated Sync cache read. Prefer fetchDeck() for cloud decks.
+ * Still used by highlight-store and sync helpers.
+ */
+export function getDeck(id: string): StoredDeck | null {
+  return getCachedDeck(id);
+}
+
+/** Local index (cache + drafts). Not the account library. */
+export function listCachedDecks(): DeckIndexEntry[] {
+  if (typeof window === "undefined") return [];
+  return listCachedIndex();
+}
+
+/** @deprecated Use listCachedDecks / listLocalDrafts / GET /api/decks. */
+export function listDecks(): DeckIndexEntry[] {
+  return listCachedDecks();
+}
+
+/** Device drafts that have never been uploaded (or used legacy short ids). */
+export function listLocalDrafts(): DeckIndexEntry[] {
+  return listCachedDecks().filter(
+    (d) => d.persistence === "local_draft" || isLocalDraftId(d.id),
+  );
+}
+
+export function removeCachedDeck(id: string) {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(KEY_DECK(id));
+  localStorage.removeItem(KEY_HIGHLIGHTS_LEGACY(id));
+  const list = listCachedIndex().filter((d) => d.id !== id);
+  writeIndex(list);
+}
+
+/** @deprecated Prefer removeCachedDeck after successful server delete. */
+export function deleteDeck(id: string) {
+  removeCachedDeck(id);
+}
+
+export function loadSlidesFor(id: string): {
+  title: string;
+  slides: DeckSlide[];
+  revision: number;
+} {
+  if (typeof window === "undefined") {
+    return { title: "Untitled deck", slides: [], revision: 0 };
+  }
+  const stored = getCachedDeck(id);
+  if (stored) {
+    return {
+      title: stored.title,
+      slides: stored.slides,
+      revision: stored.revision ?? 0,
+    };
+  }
+  return { title: "Deck not found", slides: [], revision: 0 };
+}
+
+/** @deprecated Cloud decks must use server UUIDs. Use saveLocalDraft for drafts. */
+export function newDeckId(): string {
+  return `local:${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export type FetchDeckResult =
+  | { ok: true; deck: StoredDeck; source: "server" | "cache" | "local_draft" }
+  | { ok: false; error: string; status?: number };
+
+/**
+ * Server-first deck load. localStorage is used only as cache / draft.
+ */
+export async function fetchDeck(id: string): Promise<FetchDeckResult> {
+  if (!id) return { ok: false, error: "Missing deck id", status: 400 };
+
+  if (isLocalDraftId(id)) {
+    const draft = getCachedDeck(id);
+    if (draft) return { ok: true, deck: draft, source: "local_draft" };
+    try {
+      const { idbGetDeck } = await import("@/lib/idb-deck-cache");
+      const fromIdb = await idbGetDeck(id);
+      if (fromIdb) return { ok: true, deck: fromIdb, source: "local_draft" };
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error: "Device draft not found on this browser", status: 404 };
+  }
+
+  try {
+    const res = await fetch(`/api/decks/${id}`);
+    const data = (await res.json().catch(() => ({}))) as ServerDeckPayload & {
+      error?: string;
+    };
+
+    if (res.status === 401) {
+      return { ok: false, error: "Session expired. Please sign in again.", status: 401 };
+    }
+    if (res.status === 403) {
+      return { ok: false, error: "You don't have access to this deck.", status: 403 };
+    }
+    if (res.status === 404) {
+      removeCachedDeck(id);
+      return { ok: false, error: "Deck not found", status: 404 };
+    }
+    if (!res.ok || !data.deck || !data.slides) {
+      const cached = getCachedDeck(id);
+      if (cached) return { ok: true, deck: cached, source: "cache" };
+      return {
+        ok: false,
+        error: data.error || "Couldn't reach Voxdeck. Check your connection and retry.",
+        status: res.status,
+      };
+    }
+
+    const deck = storedDeckFromServer(data);
+    const prev = getCachedDeck(id);
+    if (prev?.highlights && Object.keys(prev.highlights).length > 0) {
+      deck.highlights = prev.highlights;
+    }
+    try {
+      cacheDeck(deck);
+    } catch {
+      /* quota — still return server deck */
+    }
+    return { ok: true, deck, source: "server" };
+  } catch {
+    const cached = getCachedDeck(id);
+    if (cached) return { ok: true, deck: cached, source: "cache" };
+    return {
+      ok: false,
+      error: "Couldn't reach Voxdeck. Check your connection and retry.",
+    };
+  }
+}
+
+export type PersistCloudResult =
+  | { ok: true; revision: number; updatedAt: number; serverUpdatedAt: string }
+  | { ok: false; error: string; offline?: boolean; conflict?: boolean };
+
+/**
+ * Persist narration/title to Supabase, then refresh the local cache.
+ */
+export async function persistCloudDeckRevision(
+  deckId: string,
+  patch: {
+    title?: string;
+    slides?: DeckSlide[];
+    highlights?: Record<string, Highlight[]>;
+  },
+  localRevision: number,
+  expectedServerUpdatedAt?: string,
+): Promise<PersistCloudResult> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return { ok: false, error: "Offline — Changes not synced", offline: true };
+  }
+  if (!isCloudDeckId(deckId)) {
+    // Local drafts stay local until explicitly uploaded.
+    try {
+      const existing = getCachedDeck(deckId);
+      if (!existing) return { ok: false, error: "Device draft not found" };
+      const updatedAt = Date.now();
+      cacheDeck({
+        ...existing,
+        title: patch.title ?? existing.title,
+        slides: patch.slides ?? existing.slides,
+        highlights: patch.highlights ?? existing.highlights ?? {},
+        revision: localRevision,
+        updatedAt,
+        persistence: "local_draft",
+      });
+      return {
+        ok: true,
+        revision: localRevision,
+        updatedAt,
+        serverUpdatedAt: "",
+      };
+    } catch (e) {
+      if (e instanceof DeckStorageError || isQuotaExceededError(e)) {
+        return { ok: false, error: DECK_SAVE_QUOTA_MESSAGE };
+      }
+      return { ok: false, error: e instanceof Error ? e.message : "Save failed" };
+    }
+  }
+
+  const existing = getCachedDeck(deckId);
+  const slides = patch.slides ?? existing?.slides ?? [];
+  let withIds = slides;
+
+  if (withIds.some((s) => !s.serverSlideId)) {
+    const loaded = await loadServerDeck(deckId);
+    if (!loaded?.slides?.length) {
+      return { ok: false, error: "Couldn't load deck from server to save." };
+    }
+    const byOrder = new Map(loaded.slides.map((s) => [s.order_index, s.id]));
+    withIds = withIds.map((s) => ({
+      ...s,
+      serverSlideId: s.serverSlideId ?? byOrder.get(Number(s.n)) ?? byOrder.get(parseInt(s.n, 10)),
+    }));
+  }
+
+  const narration = withIds
+    .filter((s) => s.serverSlideId)
+    .map((s) => ({ slide_id: s.serverSlideId as string, text: s.script ?? "" }));
+
+  if (narration.length === 0) {
+    return { ok: false, error: "No slides available to save." };
+  }
+
+  const res = await fetch(`/api/decks/${deckId}/script`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      narration,
+      title: patch.title,
+      expected_updated_at: expectedServerUpdatedAt ?? existing?.serverUpdatedAt,
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+    deck?: { updated_at?: string; title?: string };
+  };
+
+  if (res.status === 401) {
+    return { ok: false, error: "Session expired. Please sign in again." };
+  }
+  if (res.status === 403) {
+    return { ok: false, error: "You don't have access to this deck." };
+  }
+  if (res.status === 409 || data.code === "stale_revision") {
+    return {
+      ok: false,
+      error: data.error || "Deck was updated on another device. Reload and try again.",
+      conflict: true,
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error || "Changes couldn't be saved.",
+    };
+  }
+
+  const updatedAt = Date.now();
+  const serverUpdatedAt = data.deck?.updated_at ?? new Date().toISOString();
+  const next: StoredDeck = {
+    id: deckId,
+    title: patch.title ?? data.deck?.title ?? existing?.title ?? "Untitled deck",
+    createdAt: existing?.createdAt ?? updatedAt,
+    updatedAt,
+    revision: localRevision,
+    serverUpdatedAt,
+    persistence: "cloud",
+    slides: withIds,
+    highlights: patch.highlights ?? existing?.highlights ?? {},
+  };
+  try {
+    cacheDeck(next);
+  } catch {
+    /* ignore quota on cache write after successful server save */
+  }
+  return { ok: true, revision: localRevision, updatedAt, serverUpdatedAt };
+}
+
+/**
+ * Local-only revision write (cache/draft). Prefer persistCloudDeckRevision.
  */
 export function persistDeckRevision(
   deckId: string,
@@ -192,20 +563,19 @@ export function persistDeckRevision(
   localRevision: number,
 ): { ok: true; revision: number; updatedAt: number } | { ok: false; error: string } {
   try {
-    const existing = getDeck(deckId);
+    const existing = getCachedDeck(deckId);
     if (!existing) {
       return { ok: false, error: "Deck not found" };
     }
     const updatedAt = Date.now();
-    const next: StoredDeck = {
+    cacheDeck({
       ...existing,
       title: patch.title ?? existing.title,
       slides: patch.slides ?? existing.slides,
       highlights: patch.highlights ?? existing.highlights ?? {},
       revision: localRevision,
       updatedAt,
-    };
-    saveDeck(next);
+    });
     return { ok: true, revision: localRevision, updatedAt };
   } catch (e) {
     if (e instanceof DeckStorageError || isQuotaExceededError(e)) {
@@ -218,51 +588,51 @@ export function persistDeckRevision(
   }
 }
 
-export function getDeck(id: string): StoredDeck | null {
-  try {
-    const raw = localStorage.getItem(KEY_DECK(id));
-    if (!raw) return null;
-    return normalizeDeck(JSON.parse(raw) as StoredDeck);
-  } catch {
-    return null;
+export async function deleteCloudDeck(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (isLocalDraftId(id)) {
+    removeCachedDeck(id);
+    return { ok: true };
   }
+  const res = await fetch(`/api/decks/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: data.error || "Couldn't delete deck on the server." };
+  }
+  removeCachedDeck(id);
+  return { ok: true };
 }
 
-export type DeckIndexEntry = { id: string; title: string; createdAt: number; count: number };
-
-export function listDecks(): DeckIndexEntry[] {
-  try {
-    const raw = localStorage.getItem(KEY_INDEX);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+export async function promoteLocalDraft(localId: string): Promise<FetchDeckResult> {
+  const draft = getCachedDeck(localId);
+  if (!draft || persistenceOf(draft) !== "local_draft") {
+    return { ok: false, error: "Device draft not found" };
   }
-}
-
-export function deleteDeck(id: string) {
-  localStorage.removeItem(KEY_DECK(id));
-  localStorage.removeItem(KEY_HIGHLIGHTS_LEGACY(id));
-  const list = listDecks().filter((d) => d.id !== id);
-  localStorage.setItem(KEY_INDEX, JSON.stringify(list));
-  window.dispatchEvent(new CustomEvent("voxdeck:decks"));
-}
-
-/** Load slides for editor/preview. Returns empty slides when the deck is missing. */
-export function loadSlidesFor(id: string): { title: string; slides: DeckSlide[]; revision: number } {
-  if (typeof window === "undefined") {
-    return { title: "Untitled deck", slides: [], revision: 0 };
-  }
-  const stored = getDeck(id);
-  if (stored) {
+  const res = await fetch("/api/decks/import", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      title: draft.title,
+      slides: draft.slides.map((s, i) => ({
+        order_index: Number(s.n) || i + 1,
+        title: s.title,
+        bullets: s.essentialPoints ?? [],
+        script: s.script,
+      })),
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    deck?: { id: string };
+    error?: string;
+  };
+  if (!res.ok || !data.deck?.id) {
     return {
-      title: stored.title,
-      slides: stored.slides,
-      revision: stored.revision ?? 0,
+      ok: false,
+      error: data.error || "Couldn't upload this device draft.",
+      status: res.status,
     };
   }
-  return { title: "Deck not found", slides: [], revision: 0 };
+  removeCachedDeck(localId);
+  return fetchDeck(data.deck.id);
 }
 
-export function newDeckId(): string {
-  return Math.random().toString(36).slice(2, 8);
-}
+export type { ServerDeckPayload };

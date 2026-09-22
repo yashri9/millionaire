@@ -22,15 +22,16 @@ export async function uploadRenderedImages(
   const failedSlides: number[] = [];
   await Promise.all(
     images.map(async (img) => {
-      const imagePath = `${basePath}/pages/${img.order_index}.png`;
-      const thumbPath = `${basePath}/thumbs/${img.order_index}.png`;
+      const imagePath = `${basePath}/pages/${img.order_index}.webp`;
+      const thumbPath = `${basePath}/thumbs/${img.order_index}.webp`;
+      const contentType = "image/webp";
       const [imageRes, thumbRes] = await Promise.all([
         storage.storage
           .from(serverEnv.decksBucket)
-          .upload(imagePath, img.imagePng, { contentType: "image/png", upsert: true }),
+          .upload(imagePath, img.imagePng, { contentType, upsert: true, cacheControl: "86400" }),
         storage.storage
           .from(serverEnv.decksBucket)
-          .upload(thumbPath, img.thumbPng, { contentType: "image/png", upsert: true }),
+          .upload(thumbPath, img.thumbPng, { contentType, upsert: true, cacheControl: "86400" }),
       ]);
       if (!imageRes.error && !thumbRes.error) {
         paths.set(img.order_index, { image_path: imagePath, thumb_path: thumbPath });

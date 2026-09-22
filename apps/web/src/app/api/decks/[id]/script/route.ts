@@ -19,8 +19,25 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const user = await requireUser();
     const deck = await assertDeckOwner(id, user.id);
 
-    const body = (await req.json()) as { narration?: Narration };
+    const body = (await req.json()) as {
+      narration?: Narration;
+      expected_updated_at?: string;
+      title?: string;
+    };
     if (!Array.isArray(body.narration)) throw new ApiError(400, "narration must be an array");
+
+    if (
+      typeof body.expected_updated_at === "string" &&
+      body.expected_updated_at &&
+      deck.updated_at &&
+      new Date(deck.updated_at).getTime() !== new Date(body.expected_updated_at).getTime()
+    ) {
+      throw new ApiError(
+        409,
+        "Deck was updated on another device. Reload and try again.",
+        "stale_revision",
+      );
+    }
 
     const supabase = await createServerClient();
     const { data: latest } = await supabase
@@ -51,10 +68,24 @@ export async function PATCH(req: Request, { params }: Ctx) {
       script = data;
     }
 
-    if (deck.status === "published") {
-      await supabase.from("decks").update({ status: "draft" }).eq("id", id);
+    const deckPatch: Record<string, string> = {};
+    if (deck.status === "published") deckPatch.status = "draft";
+    if (typeof body.title === "string" && body.title.trim()) {
+      deckPatch.title = body.title.trim();
+    }
+    // Always touch the deck row so updated_at advances for cross-device conflict checks.
+    if (Object.keys(deckPatch).length === 0) {
+      deckPatch.title = deck.title;
     }
 
-    return Response.json({ script });
+    const { data: updatedDeck, error: deckError } = await supabase
+      .from("decks")
+      .update(deckPatch)
+      .eq("id", id)
+      .select("id, title, status, updated_at")
+      .single();
+    if (deckError) throw deckError;
+
+    return Response.json({ script, deck: updatedDeck });
   });
 }

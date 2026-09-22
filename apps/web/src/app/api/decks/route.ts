@@ -13,12 +13,24 @@ export async function GET() {
     const supabase = await createServerClient();
     const { data, error } = await supabase
       .from("decks")
-      .select("id, title, status, last_viewed_slide_index, created_at, updated_at")
+      .select(
+        "id, title, status, last_viewed_slide_index, created_at, updated_at, slides(count)",
+      )
       .eq("user_id", user.id)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return Response.json({ decks: data ?? [] });
+    const decks = (data ?? []).map((row) => {
+      const slideCountRaw = (row as { slides?: { count: number }[] | null }).slides;
+      const slide_count = Array.isArray(slideCountRaw)
+        ? Number(slideCountRaw[0]?.count ?? 0)
+        : 0;
+      const { slides: _slides, ...rest } = row as typeof row & {
+        slides?: unknown;
+      };
+      return { ...rest, slide_count };
+    });
+    return Response.json({ decks });
   });
 }
 

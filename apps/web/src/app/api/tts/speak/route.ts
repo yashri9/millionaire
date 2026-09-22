@@ -99,16 +99,49 @@ export async function POST(req: Request) {
     };
 
     try {
-      // Prefer timestamps so transcript + highlights share the same clock map
-      const timed = await client.textToSpeech.convertWithTimestamps(
-        preset.elevenLabsId,
-        voicePayload,
+      const cacheKeyVoice = `${preset.elevenLabsId}:${settings.modelId}`;
+      const { getTtsCachedSignedUrl, putTtsCache } = await import("@/lib/tts-storage-cache");
+      const { trackPipelineEvent } = await import("@/lib/observe");
+      const { withRetry } = await import("@/lib/provider-resilience");
+
+      // Storage-backed durable cache (survives cold starts).
+      const cachedUrl = await getTtsCachedSignedUrl({
+        voiceId: cacheKeyVoice,
+        text,
+        modelId: settings.modelId,
+      });
+      if (cachedUrl) {
+        trackPipelineEvent("tts_cache_hit", { voiceId: settings.voiceId });
+        const audioRes = await fetch(cachedUrl);
+        if (audioRes.ok) {
+          const buf = Buffer.from(await audioRes.arrayBuffer());
+          return Response.json({
+            audioBase64: buf.toString("base64"),
+            mimeType: "audio/mpeg",
+            alignment: null,
+            source: "storage-cache",
+          });
+        }
+      }
+      trackPipelineEvent("tts_cache_miss", { voiceId: settings.voiceId });
+
+      const timed = await withRetry("elevenlabs", () =>
+        client.textToSpeech.convertWithTimestamps(preset.elevenLabsId, voicePayload),
       );
 
       // Prefer original-text alignment; keep normalized as fallback for the client
       const primary = timed.alignment ?? null;
       const normalized = timed.normalizedAlignment ?? null;
       const alignment = primary ?? normalized;
+
+      if (timed.audioBase64) {
+        void putTtsCache({
+          voiceId: cacheKeyVoice,
+          text,
+          modelId: settings.modelId,
+          bytes: Buffer.from(timed.audioBase64, "base64"),
+        });
+      }
 
       return Response.json(
         {

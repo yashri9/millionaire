@@ -6,16 +6,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/shell";
 import { Button, Input, StatusPill, StripedProgress, Waveform } from "@/components/ui-kit";
 import { ComingSoonBadge } from "@/components/ui-panel";
-import { loadSlidesFor, getDeck, saveDeck } from "@/lib/deck-store";
+import { cacheDeck, getCachedDeck, isCloudDeckId, type DeckSlide } from "@/lib/deck-store";
 import { getAllHighlights, useHighlights } from "@/lib/highlight-store";
 import { publishDeckSnapshot, getShareTokenForDeck } from "@/lib/share-store";
 import { SlidePlaybackStage } from "@/components/highlights/SlidePlaybackStage";
 import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
 import { useSpeechNarration, usePrefetchNarration } from "@/hooks/use-speech-narration";
+import { unlockNarrationAudioSync } from "@/hooks/use-speech-narration";
 import { getCachedNarration } from "@/lib/tts-cache";
 import { useVoiceSettings } from "@/lib/voice-store";
 import { getPreset, type DeckVoiceSettings } from "@/lib/voice-settings";
 import { publicEnv } from "@/lib/env";
+import { useHydrateDeck } from "@/hooks/use-hydrate-deck";
 
 type Access = "anyone" | "email" | "password";
 
@@ -47,10 +49,14 @@ export default function PublishPage() {
   const params = useParams();
   const id = String(params.id ?? "");
   const [deckTitle, setDeckTitle] = useState("Untitled deck");
-  const [slides, setSlides] = useState<ReturnType<typeof loadSlidesFor>["slides"]>([]);
+  const [slides, setSlides] = useState<DeckSlide[]>([]);
   const [idx, setIdx] = useState(0);
   const [access, setAccess] = useState<Access>("anyone");
-  const narrationRef = useRef<{ pause: () => void; start: () => void; restart: () => void } | null>(null);
+  const narrationRef = useRef<{
+    pause: () => void;
+    start: (scriptOverride?: string) => void;
+    restart: () => void;
+  } | null>(null);
   const [gatedEmail, setGatedEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captureEmail, setCaptureEmail] = useState(true);
@@ -64,21 +70,36 @@ export default function PublishPage() {
   const [shareToken, setShareToken] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [leftTab, setLeftTab] = useState<"checklist" | "access" | "tracking">("checklist");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const voice = useVoiceSettings();
 
+  const { state: hydrateState, reload } = useHydrateDeck(id);
+
   useEffect(() => {
-    const loaded = loadSlidesFor(id);
-    setDeckTitle(loaded.title);
-    setSlides(loaded.slides);
+    if (hydrateState.status === "loading") {
+      setHydrated(false);
+      return;
+    }
+    if (hydrateState.status === "error") {
+      setLoadError(hydrateState.error);
+      setSlides([]);
+      setHydrated(true);
+      return;
+    }
+    setDeckTitle(hydrateState.deck.title);
+    setSlides(hydrateState.deck.slides);
+    setLoadError(null);
+    setHydrated(true);
     const existing = getShareTokenForDeck(id);
     if (existing) {
       setShareToken(existing);
       setCustomSlug(existing);
     }
-  }, [id]);
+  }, [hydrateState, id]);
 
   const active = slides[idx] ?? slides[0];
   const { items: highlights } = useHighlights(id, active?.n ?? "01");
@@ -125,12 +146,13 @@ export default function PublishPage() {
   const advanceOrStop = useCallback(() => {
     setIdx((i) => {
       if (i < slides.length - 1) {
-        window.setTimeout(() => narrationRef.current?.start(), 40);
+        const next = slides[i + 1];
+        narrationRef.current?.start(next?.script ?? "");
         return i + 1;
       }
       return i;
     });
-  }, [slides.length]);
+  }, [slides]);
 
   const narration = useSpeechNarration(active?.script ?? "", advanceOrStop);
   narrationRef.current = narration;
@@ -158,12 +180,12 @@ export default function PublishPage() {
     reader.onload = () => {
       const dataUrl = String(reader.result || "");
       if (!dataUrl) return;
-      const deck = getDeck(id);
+      const deck = getCachedDeck(id);
       if (!deck || deck.slides.length === 0) return;
       const nextSlides = deck.slides.map((s, i) =>
         i === 0 ? { ...s, thumbnail: dataUrl } : s,
       );
-      saveDeck({
+      cacheDeck({
         ...deck,
         slides: nextSlides,
         revision: (deck.revision ?? 0) + 1,
@@ -175,9 +197,15 @@ export default function PublishPage() {
 
   function publish() {
     setPublishError(null);
-    const deck = getDeck(id);
+    const deck = getCachedDeck(id);
     if (!deck) {
       setPublishError("Deck not found. Return to the editor and save first.");
+      return;
+    }
+    if (!isCloudDeckId(id)) {
+      setPublishError(
+        "This is a device draft. Upload it to Voxdeck from the dashboard before publishing.",
+      );
       return;
     }
     if ((deck.revision ?? 0) < 0) {
@@ -289,6 +317,24 @@ export default function PublishPage() {
 
   return (
     <AppShell variant="app">
+      {!hydrated || hydrateState.status === "loading" ? (
+        <div className="p-8 text-sm text-muted-foreground">Loading deck…</div>
+      ) : loadError ? (
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
+          <p className="font-display text-2xl font-bold tracking-tight">Couldn&apos;t open publish</p>
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <div className="flex gap-3">
+            <Button type="button" onClick={() => void reload()}>
+              Retry
+            </Button>
+            <Link href="/dashboard">
+              <Button type="button" variant="secondary">
+                Back to decks
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : (
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-8">
         {/* Left rail — same structure as preview */}
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -668,7 +714,8 @@ export default function PublishPage() {
                 onClick={() => {
                   narration.pause();
                   setIdx(0);
-                  window.setTimeout(() => narration.restart(), 40);
+                  unlockNarrationAudioSync();
+                  narration.restart();
                 }}
                 className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
               >
@@ -702,6 +749,7 @@ export default function PublishPage() {
           </div>
         </section>
       </div>
+      )}
     </AppShell>
   );
 }

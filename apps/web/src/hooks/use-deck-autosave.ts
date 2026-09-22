@@ -10,7 +10,11 @@ import {
   AUTOSAVE_DEBOUNCE_MS,
 } from "@/lib/deck-autosave";
 import { getAllHighlights } from "@/lib/highlight-store";
-import { getDeck, persistDeckRevision, type DeckSlide } from "@/lib/deck-store";
+import {
+  getCachedDeck,
+  persistCloudDeckRevision,
+  type DeckSlide,
+} from "@/lib/deck-store";
 
 export type UseDeckAutosaveOptions = {
   deckId: string;
@@ -18,43 +22,49 @@ export type UseDeckAutosaveOptions = {
   getSlides: () => DeckSlide[];
   getTitle?: () => string;
   debounceMs?: number;
+  /** Called when server reports a stale revision conflict. */
+  onConflict?: () => void;
 };
 
 export function useDeckAutosave(opts: UseDeckAutosaveOptions) {
-  const { deckId, getSlides, getTitle, debounceMs = AUTOSAVE_DEBOUNCE_MS } = opts;
+  const { deckId, getSlides, getTitle, debounceMs = AUTOSAVE_DEBOUNCE_MS, onConflict } =
+    opts;
   const getSlidesRef = useRef(getSlides);
   const getTitleRef = useRef(getTitle);
+  const onConflictRef = useRef(onConflict);
   getSlidesRef.current = getSlides;
   getTitleRef.current = getTitle;
+  onConflictRef.current = onConflict;
 
   const [snap, setSnap] = useState<DeckAutosaveSnapshot>(() => {
-    const deck = typeof window !== "undefined" ? getDeck(deckId) : null;
+    const deck = typeof window !== "undefined" ? getCachedDeck(deckId) : null;
     return createInitialAutosaveSnapshot(deck?.revision ?? 0, deck?.updatedAt ?? null);
   });
 
   const controllerRef = useRef<DeckAutosaveController | null>(null);
 
   useEffect(() => {
-    const deck = getDeck(deckId);
+    const deck = getCachedDeck(deckId);
     const controller = new DeckAutosaveController(
       async (localRevision): Promise<PersistResult> => {
         if (typeof navigator !== "undefined" && navigator.onLine === false) {
           return { ok: false, error: "Offline — Changes not synced", offline: true };
         }
-        const existing = getDeck(deckId);
-        if (!existing) {
-          return { ok: false, error: "Deck not found" };
-        }
-        const result = persistDeckRevision(
+        const existing = getCachedDeck(deckId);
+        const result = await persistCloudDeckRevision(
           deckId,
           {
-            title: getTitleRef.current?.() ?? existing.title,
+            title: getTitleRef.current?.() ?? existing?.title,
             slides: getSlidesRef.current(),
             highlights: getAllHighlights(deckId),
           },
           localRevision,
+          existing?.serverUpdatedAt,
         );
-        if (!result.ok) return result;
+        if (!result.ok) {
+          if (result.conflict) onConflictRef.current?.();
+          return result;
+        }
         return { ok: true, revision: result.revision, updatedAt: result.updatedAt };
       },
       {
@@ -127,6 +137,17 @@ export function useDeckAutosave(opts: UseDeckAutosaveOptions) {
     return c.retry();
   }, [snap]);
 
+  const resetFromServer = useCallback((revision: number, updatedAt: number | null) => {
+    const controller = controllerRef.current;
+    if (!controller) {
+      setSnap(createInitialAutosaveSnapshot(revision, updatedAt));
+      return;
+    }
+    // Recreate by disposing isn't available — update via markDirty-free path:
+    // subscribe snapshot is internal; simplest is replace controller on next deckId effect.
+    setSnap(createInitialAutosaveSnapshot(revision, updatedAt));
+  }, []);
+
   return {
     status: snap.status,
     localRevision: snap.localRevision,
@@ -136,6 +157,7 @@ export function useDeckAutosave(opts: UseDeckAutosaveOptions) {
     markDirty,
     flush,
     retry,
+    resetFromServer,
     isDirty:
       snap.status === "dirty" ||
       snap.status === "saving" ||

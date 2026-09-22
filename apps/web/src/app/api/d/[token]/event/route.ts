@@ -1,6 +1,7 @@
 import { handle, ApiError } from "@/lib/http";
 import { getPublishedDeckByToken } from "@/lib/recipient";
 import { createServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit, clientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: Promise<{ token: string }> };
 
@@ -8,16 +9,22 @@ const VALID_TYPES = new Set(["opened", "slide_viewed", "question_asked", "comple
 
 /**
  * POST /api/d/:token/event — log recipient events (PUBLIC, no login).
- * type: opened | slide_viewed | completed. Validates the session actually
- * belongs to THIS token's active share before writing anything, so a
- * recipient can't log events against sessions for a deck they don't have the
- * link to.
  */
 export async function POST(req: Request, { params }: Ctx) {
   return handle(async () => {
     const { token } = await params;
+    const ip = clientIp(req);
+    const limit = await checkRateLimit(`event:ip:${ip}`, 120, 60);
+    if (!limit.allowed) {
+      throw new ApiError(429, "Too many requests. Please try again shortly.");
+    }
+
     const result = await getPublishedDeckByToken(token);
-    if (!result.ok) throw new ApiError(404, "Link is not active");
+    if (!result.ok) {
+      const fail = await checkRateLimit(`event:invalid:${ip}`, 20, 300);
+      if (!fail.allowed) throw new ApiError(429, "Too many requests");
+      throw new ApiError(404, "Link is not active");
+    }
 
     const body = (await req.json().catch(() => null)) as
       | { session_id?: string; type?: string; payload?: Record<string, unknown> }
@@ -37,10 +44,12 @@ export async function POST(req: Request, { params }: Ctx) {
 
     await db.from("events").insert({ session_id: sessionId, type, payload: body?.payload ?? {} });
 
-    const patch: { last_seen_at: string; completed?: boolean } = { last_seen_at: new Date().toISOString() };
+    const patch: { last_seen_at: string; completed?: boolean } = {
+      last_seen_at: new Date().toISOString(),
+    };
     if (type === "completed") patch.completed = true;
     await db.from("sessions").update(patch).eq("id", sessionId);
 
-    return Response.json({ ok: true });
+    return Response.json({ ok: true }, { headers: rateLimitHeaders(limit) });
   });
 }

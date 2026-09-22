@@ -19,15 +19,17 @@ import { TriggerPicker } from "@/components/highlights/TriggerPicker";
 import { SyncedTranscript } from "@/components/highlights/SyncedTranscript";
 import { RegionDrawLayer, type DrawnRegion } from "@/components/highlights/RegionDrawLayer";
 import { RegionOutline, RegionSpotlight } from "@/components/highlights/RegionSpotlight";
-import { loadSlidesFor, getDeck } from "@/lib/deck-store";
+import { getCachedDeck, type DeckSlide as StoredSlide } from "@/lib/deck-store";
 import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
 import { useDeckAutosave } from "@/hooks/use-deck-autosave";
+import { useHydrateDeck } from "@/hooks/use-hydrate-deck";
 import {
   useSpeechNarration,
   usePrefetchNarration,
   invalidateNarrationAudio,
   regenerateAllVoices,
   unlockNarrationAudio,
+  unlockNarrationAudioSync,
   playObjectUrl,
   getCachedNarration,
 } from "@/hooks/use-speech-narration";
@@ -75,8 +77,10 @@ function fmtDur(sec: number) {
   return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 }
 
-function slidesForDeck(id: string): { title: string; slides: Slide[]; thumbs: Record<string, string> } {
-  const { title, slides } = loadSlidesFor(id);
+function slidesForStored(slides: StoredSlide[]): {
+  slides: Slide[];
+  thumbs: Record<string, string>;
+} {
   const thumbs: Record<string, string> = {};
   const out: Slide[] = slides.map((s) => {
     if (s.thumbnail) thumbs[s.n] = s.thumbnail;
@@ -97,7 +101,7 @@ function slidesForDeck(id: string): { title: string; slides: Slide[]; thumbs: Re
       lowConfidenceFlags: s.lowConfidenceFlags ?? [],
     };
   });
-  return { title, slides: out, thumbs };
+  return { slides: out, thumbs };
 }
 
 const statusDot: Record<SlideStatus, string> = {
@@ -131,29 +135,47 @@ export default function EditorPage() {
   const [regenerating, setRegenerating] = useState(false);
   const narrationRef = useRef<{
     pause: () => void;
-    start: () => void;
+    start: (scriptOverride?: string) => void;
     restart: () => void;
     playing: boolean;
   } | null>(null);
   const [navBusy, setNavBusy] = useState(false);
   const [narrationOpen, setNarrationOpen] = useState(true);
   const [railTool, setRailTool] = useState<RailTool | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const slidesRef = useRef(slides);
   slidesRef.current = slides;
 
+  const { state: hydrateState, reload: reloadDeck } = useHydrateDeck(id);
+
   useEffect(() => {
-    const initial = slidesForDeck(id);
-    setDeckTitle(initial.title);
-    setThumbs(initial.thumbs);
-    setSlides(initial.slides);
-    setSelected(initial.slides[0]?.n ?? "01");
-  }, [id]);
+    if (hydrateState.status === "loading") {
+      setHydrated(false);
+      setLoadError(null);
+      return;
+    }
+    if (hydrateState.status === "error") {
+      setHydrated(true);
+      setLoadError(hydrateState.error);
+      setSlides([]);
+      setThumbs({});
+      return;
+    }
+    const mapped = slidesForStored(hydrateState.deck.slides);
+    setDeckTitle(hydrateState.deck.title);
+    setThumbs(mapped.thumbs);
+    setSlides(mapped.slides);
+    setSelected(mapped.slides[0]?.n ?? "01");
+    setLoadError(null);
+    setHydrated(true);
+  }, [hydrateState]);
 
   const autosave = useDeckAutosave({
     deckId: id,
     getSlides: () =>
       slidesRef.current.map((s) => {
-        const stored = getDeck(id)?.slides.find((x) => x.n === s.n);
+        const stored = getCachedDeck(id)?.slides.find((x) => x.n === s.n);
         return {
           ...(stored ?? {
             n: s.n,
@@ -169,6 +191,9 @@ export default function EditorPage() {
         };
       }),
     getTitle: () => deckTitle,
+    onConflict: () => {
+      void reloadDeck();
+    },
   });
 
   const active =
@@ -319,8 +344,9 @@ export default function EditorPage() {
     }
     const i = slides.findIndex((s) => s.n === selected);
     if (i >= 0 && i < slides.length - 1) {
-      setSelected(slides[i + 1].n);
-      window.setTimeout(() => narrationRef.current?.start(), 40);
+      const next = slides[i + 1];
+      setSelected(next.n);
+      narrationRef.current?.start(next.script ?? "");
       return;
     }
     narrationRef.current?.pause();
@@ -478,10 +504,13 @@ export default function EditorPage() {
         }
       }
       if (inField) return;
-      if (e.code === "Space") {
+        if (e.code === "Space") {
         e.preventDefault();
         if (narration.playing) narration.pause();
-        else narration.start();
+        else {
+          unlockNarrationAudioSync();
+          narration.start();
+        }
       } else if (e.key === "j" || e.key === "ArrowRight") step(1);
       else if (e.key === "k" || e.key === "ArrowLeft") step(-1);
       else if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -493,6 +522,37 @@ export default function EditorPage() {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex, selected, railTool, narrationOpen, pending, drawingRegion]);
+
+  if (!hydrated || hydrateState.status === "loading") {
+    return (
+      <AppShell variant="app" fillViewport showTopBar={false}>
+        <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+          Loading deck…
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppShell variant="app" fillViewport showTopBar={false}>
+        <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center gap-4 p-8 text-center">
+          <p className="font-display text-2xl font-bold tracking-tight">Couldn&apos;t open deck</p>
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button type="button" onClick={() => void reloadDeck()}>
+              Retry
+            </Button>
+            <Link href="/dashboard">
+              <Button type="button" variant="secondary">
+                Back to decks
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell variant="app" fillViewport showTopBar={false}>
@@ -768,7 +828,10 @@ export default function EditorPage() {
                     type="button"
                     onClick={() => {
                       if (playing) narration.pause();
-                      else narration.start();
+                      else {
+                        unlockNarrationAudioSync();
+                        narration.start();
+                      }
                     }}
                     className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-[10px] text-background"
                     aria-label={playing ? "Pause narration" : "Play narration"}

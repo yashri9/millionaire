@@ -1,13 +1,12 @@
 import { requireUser } from "@/lib/auth";
 import { handle, ApiError } from "@/lib/http";
-import { createServerClient, createServiceClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 import { validateUpload } from "@/lib/parse";
-import { serverEnv } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 
 /**
- * POST /api/decks/prepare — create a draft deck and a signed Storage upload URL.
- * The browser uploads the PDF directly (avoids Vercel's 4.5MB body cap), then
- * POST /api/decks/:id/parse to process it.
+ * POST /api/decks/prepare — create a draft deck row and return TUS upload target.
+ * Browser uploads directly to *.storage.supabase.co (not through Vercel).
  */
 export async function POST(request: Request) {
   return handle(async () => {
@@ -35,25 +34,49 @@ export async function POST(request: Request) {
       throw insertError ?? new Error("Failed to create deck");
     }
 
-    const storage = createServiceClient();
     const path = `${user.id}/${deck.id}/${filename}`;
-    const { data: signed, error: signError } = await storage.storage
-      .from(serverEnv.decksBucket)
-      .createSignedUploadUrl(path);
-
-    if (signError || !signed?.signedUrl) {
-      await supabase.from("decks").update({ status: "parse_failed" }).eq("id", deck.id);
-      throw new ApiError(502, `Could not create upload URL: ${signError?.message ?? "unknown"}`);
-    }
-
     await supabase.from("decks").update({ source_file_url: path }).eq("id", deck.id);
+
+    const projectUrl = publicEnv.supabaseUrl.replace(/\/$/, "");
+    // Prefer direct Storage hostname for TUS (avoids proxy JWS issues).
+    const tusEndpoint = projectUrl.includes(".supabase.co")
+      ? projectUrl.replace("://", "://").replace(".supabase.co", ".storage.supabase.co") +
+        "/storage/v1/upload/resumable"
+      : `${projectUrl}/storage/v1/upload/resumable`;
+
+    // Fix hostname construction: https://xxx.supabase.co → https://xxx.storage.supabase.co
+    const directHost = (() => {
+      try {
+        const u = new URL(projectUrl);
+        if (u.hostname.endsWith(".supabase.co") && !u.hostname.includes(".storage.")) {
+          u.hostname = u.hostname.replace(".supabase.co", ".storage.supabase.co");
+        }
+        return `${u.origin}/storage/v1/upload/resumable`;
+      } catch {
+        return tusEndpoint;
+      }
+    })();
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new ApiError(401, "Session expired. Please sign in again.");
+    }
 
     return Response.json({
       deck,
       path,
-      token: signed.token,
-      signedUrl: signed.signedUrl,
       contentType: body.contentType || "application/pdf",
+      tus: {
+        endpoint: directHost,
+        bucketName: process.env.SUPABASE_DECKS_BUCKET || "decks",
+        objectName: path,
+        accessToken: session.access_token,
+        anonKey: publicEnv.supabaseAnonKey,
+        chunkSize: 6 * 1024 * 1024,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+      },
     });
   });
 }
