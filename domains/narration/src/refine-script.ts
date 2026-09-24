@@ -1,5 +1,5 @@
-﻿import { draftPitchLine } from "./draft-pitch";
-import { extractEssentialPoints } from "./essential-points";
+﻿import { draftPitchLine } from "./draft-pitch.ts";
+import { extractEssentialPoints } from "./essential-points.ts";
 
 export type RefineMode = "shorten" | "punch" | "regenerate";
 
