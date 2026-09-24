@@ -1,4 +1,4 @@
-﻿import { extractEssentialPoints } from "./essential-points.ts";
+﻿import { extractEssentialPoints } from "./essential-points";
 
 export type PitchDraftInput = {
   pageText: string;

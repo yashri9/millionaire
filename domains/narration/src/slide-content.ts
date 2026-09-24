@@ -3,7 +3,7 @@
  * pre-select "essentials". Judgment of what to pitch belongs to the LLM.
  */
 
-import { buildLabeledFacts } from "./labeled-facts.ts";
+import { buildLabeledFacts } from "./labeled-facts";
 
 export type ExtractionMethod = "text-layer" | "ocr";
 
