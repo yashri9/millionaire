@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/shell";
 import { OffsetButton, StripedProgress } from "@/components/ui-kit";
 import {
@@ -17,6 +17,7 @@ import {
   DeckStorageError,
   isQuotaExceededError,
   DECK_SAVE_QUOTA_MESSAGE,
+  deleteCloudDeck,
 } from "@/lib/deck-store";
 import { uploadFileWithTus, type TusUploadConfig } from "@/lib/tus-upload";
 
@@ -30,9 +31,27 @@ type UploadState =
   | "parse_error"
   | "unsupported_pdf"
   | "upload_failed"
-  | "save_error";
+  | "save_error"
+  /** Server is still working after 10 min. The deck exists; don't offer a duplicate device draft. */
+  | "slow";
 
 type ProgressPhase = "upload" | "parse" | "ocr" | "narrate";
+
+class SlowProcessingError extends Error {
+  constructor() {
+    super("This deck is taking longer than usual. It is still processing and will appear in your decks when it's ready.");
+  }
+}
+
+/**
+ * The server created a deck row for this run but the run failed or was
+ * cancelled. Delete it so the dashboard doesn't fill up with empty
+ * "0 slides" decks. Best effort — never blocks the UI.
+ */
+function discardOrphanDeck(id: string | null) {
+  if (!id) return;
+  void deleteCloudDeck(id).catch(() => null);
+}
 
 export default function NewDeckPage() {
   const [state, setState] = useState<UploadState>("idle");
@@ -43,6 +62,10 @@ export default function NewDeckPage() {
   const [dragging, setDragging] = useState(false);
   const [lastFile, setLastFile] = useState<File | null>(null);
   const [draftOffer, setDraftOffer] = useState(false);
+  /** Cloud upload (server parses) vs device draft (parsed in this browser, has an OCR step). */
+  const [mode, setMode] = useState<"cloud" | "device">("cloud");
+  /** Server deck row created by /api/decks/prepare for the current run. */
+  const deckIdRef = useRef<string | null>(null);
   const busyRef = useRef(false);
   const runIdRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,7 +86,7 @@ export default function NewDeckPage() {
         };
         const status = data.deck?.status;
         if (status === "parse_failed") {
-          throw new Error("We couldn't process this PDF. Please try again.");
+          throw new Error("We couldn't read this PDF. Try again, or export it again from your slides app.");
         }
         if (status === "draft" || status === "published") {
           const hasSlides = Array.isArray(data.slides) && data.slides.length > 0;
@@ -85,7 +108,7 @@ export default function NewDeckPage() {
       }
       await new Promise((r) => setTimeout(r, 2000));
     }
-    throw new Error("Processing is taking longer than expected. Open the deck from your library shortly.");
+    throw new SlowProcessingError();
   }
 
   async function handleFile(file: File) {
@@ -94,6 +117,8 @@ export default function NewDeckPage() {
     busyRef.current = true;
     setLastFile(file);
     setDraftOffer(false);
+    setMode("cloud");
+    deckIdRef.current = null;
     setFilename(file.name);
     setError("");
     setState("validating");
@@ -135,9 +160,10 @@ export default function NewDeckPage() {
       if (!prep.ok || !prepBody.deck?.id || !prepBody.tus) {
         throw new Error(
           prepBody.error ||
-            "We couldn't upload your deck. Your deck has not been marked as saved.",
+            "We couldn't upload your deck. Check your connection and try again.",
         );
       }
+      deckIdRef.current = prepBody.deck.id;
 
       await uploadFileWithTus(file, prepBody.tus, {
         onProgress: (p) => {
@@ -172,6 +198,7 @@ export default function NewDeckPage() {
       }
 
       setProgressPct(100);
+      deckIdRef.current = null; // kept — it's a real deck now
       setState("success");
       setTimeout(() => {
         if (runId === runIdRef.current) {
@@ -180,6 +207,16 @@ export default function NewDeckPage() {
       }, 350);
     } catch (err) {
       if (runId !== runIdRef.current) return;
+      if (err instanceof SlowProcessingError) {
+        // The deck is real and still processing. Keep it; point to the library.
+        deckIdRef.current = null;
+        setState("slow");
+        setError(err.message);
+        busyRef.current = false;
+        return;
+      }
+      discardOrphanDeck(deckIdRef.current);
+      deckIdRef.current = null;
       if (err instanceof DeckStorageError || isQuotaExceededError(err)) {
         setState("save_error");
         setError(DECK_SAVE_QUOTA_MESSAGE);
@@ -189,7 +226,7 @@ export default function NewDeckPage() {
       const message =
         err instanceof Error
           ? err.message
-          : "We couldn't upload your deck. Your deck has not been marked as saved.";
+          : "We couldn't upload your deck. Check your connection and try again.";
       setState(
         /password/i.test(message) ? "unsupported_pdf" : "upload_failed",
       );
@@ -208,6 +245,7 @@ export default function NewDeckPage() {
     const runId = ++runIdRef.current;
     busyRef.current = true;
     setDraftOffer(false);
+    setMode("device");
     setState("parsing");
     setError("");
     setProgressPhase("parse");
@@ -246,6 +284,9 @@ export default function NewDeckPage() {
   }
 
   function resetToIdle() {
+    // Cancel mid-upload used to leave a half-made deck on the server.
+    discardOrphanDeck(deckIdRef.current);
+    deckIdRef.current = null;
     runIdRef.current += 1;
     busyRef.current = false;
     setState("idle");
@@ -255,6 +296,21 @@ export default function NewDeckPage() {
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  // Leaving mid-upload silently kills the run; warn first.
+  useEffect(() => {
+    if (state !== "parsing") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [state]);
+
+  const pickAnotherFile =
+    state === "invalid_file" || state === "file_too_large" || state === "unsupported_pdf";
+  const sessionExpired = /session expired/i.test(error);
+
   const showDropzone =
     state === "idle" ||
     state === "invalid_file" ||
@@ -262,27 +318,45 @@ export default function NewDeckPage() {
     state === "parse_error" ||
     state === "unsupported_pdf" ||
     state === "upload_failed" ||
-    state === "save_error";
+    state === "save_error" ||
+    state === "slow";
 
-  const stages = [
-    { key: "upload", label: "Uploading to workspace" },
+  // The cloud path never runs the OCR step (the server does it inside
+  // "Reading slides"), but it used to show a ✓ next to it anyway.
+  const allStages = [
+    { key: "upload", label: "Uploading your PDF" },
     { key: "parse", label: "Reading slides" },
-    { key: "ocr", label: "Rendering pages" },
-    { key: "narrate", label: "Writing pitch scripts" },
+    { key: "ocr", label: "Reading text inside images" },
+    { key: "narrate", label: "Writing the voice-over" },
   ] as const;
+  const stages = allStages.filter((s) =>
+    mode === "cloud" ? s.key !== "ocr" : s.key !== "upload",
+  );
 
   return (
     <AppShell variant="app">
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <div className="mb-10">
-          <h1 className="font-display text-5xl font-bold tracking-tighter">
-            Drop the deck.
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
+        <div className="mb-8 sm:mb-10">
+          <h1 className="font-display text-4xl font-bold tracking-tighter sm:text-5xl">
+            Upload your deck
           </h1>
+          <p className="mt-3 max-w-xl text-muted-foreground">
+            We write a voice-over for every slide. You tweak it, then share one link.
+          </p>
         </div>
 
         {showDropzone ? (
           <>
             <label
+              tabIndex={0}
+              role="button"
+              aria-label="Choose a PDF to upload"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  inputRef.current?.click();
+                }
+              }}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragging(true);
@@ -294,7 +368,7 @@ export default function NewDeckPage() {
                 const f = e.dataTransfer.files?.[0];
                 if (f) void handleFile(f);
               }}
-              className={`group relative block cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed p-16 text-center transition-all ${
+              className={`group relative block cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground sm:p-16 ${
                 dragging
                   ? "scale-[1.01] border-foreground bg-accent/20"
                   : "border-foreground/30 bg-muted hover:border-foreground hover:bg-accent/10"
@@ -315,15 +389,19 @@ export default function NewDeckPage() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-foreground bg-background offset-shadow-sm">
                   <span className="font-display text-3xl font-bold">+</span>
                 </div>
-                <div className="font-display text-2xl font-bold tracking-tight">
+                {/* Phones and iPads can't drag files; don't tell them to. */}
+                <div className="font-display text-2xl font-bold tracking-tight [@media(pointer:coarse)]:hidden">
                   Drag a PDF here, or{" "}
                   <span className="underline decoration-accent decoration-4 underline-offset-4">
                     click to browse
                   </span>
                 </div>
-                <div className="eyebrow">
-                  PDF · 25MB max · resumable upload · processed in your workspace
+                <div className="hidden font-display text-2xl font-bold tracking-tight [@media(pointer:coarse)]:block">
+                  <span className="underline decoration-accent decoration-4 underline-offset-4">
+                    Tap to choose a PDF
+                  </span>
                 </div>
+                <div className="text-sm text-muted-foreground">PDF up to 25 MB · ready in about a minute</div>
               </div>
             </label>
 
@@ -333,27 +411,38 @@ export default function NewDeckPage() {
                 className="mt-6 rounded-2xl border border-danger/40 bg-danger/10 p-5"
               >
                 <div className="font-display text-lg font-bold tracking-tight">
-                  {state === "upload_failed" ? "Upload failed" : "Couldn&apos;t process PDF"}
+                  {/* Plain JS string: "&apos;" here rendered literally as "Couldn&apos;t". */}
+                  {state === "upload_failed"
+                    ? "Upload failed"
+                    : state === "slow"
+                      ? "Still processing"
+                      : "Couldn't process this PDF"}
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-                {state === "upload_failed" ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Your deck has <strong>not</strong> been marked as saved in your workspace.
-                  </p>
-                ) : null}
                 <div className="mt-4 flex flex-wrap gap-3">
-                  <OffsetButton
-                    type="button"
-                    onClick={() => {
-                      if (lastFile) void handleFile(lastFile);
-                      else {
-                        resetToIdle();
-                        inputRef.current?.click();
-                      }
-                    }}
-                  >
-                    Retry upload
-                  </OffsetButton>
+                  {state === "slow" ? (
+                    <Link href="/dashboard">
+                      <OffsetButton type="button">Go to your decks</OffsetButton>
+                    </Link>
+                  ) : sessionExpired ? (
+                    <Link href="/login">
+                      <OffsetButton type="button">Sign in again</OffsetButton>
+                    </Link>
+                  ) : (
+                    <OffsetButton
+                      type="button"
+                      onClick={() => {
+                        // Retrying the same invalid / too-big / locked file just repeats the error.
+                        if (lastFile && !pickAnotherFile) void handleFile(lastFile);
+                        else {
+                          resetToIdle();
+                          inputRef.current?.click();
+                        }
+                      }}
+                    >
+                      {pickAnotherFile ? "Choose another PDF" : "Try again"}
+                    </OffsetButton>
+                  )}
                   {draftOffer && lastFile ? (
                     <button
                       type="button"
@@ -375,13 +464,13 @@ export default function NewDeckPage() {
             )}
           </>
         ) : (
-          <div className="relative overflow-hidden rounded-3xl border-2 border-foreground bg-background p-8 offset-shadow">
+          <div className="relative overflow-hidden rounded-3xl border-2 border-foreground bg-background p-5 offset-shadow sm:p-8">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <div className="eyebrow mb-1">
                   {state === "success" ? "Ready" : "Now processing"}
                 </div>
-                <div className="font-display text-2xl font-bold tracking-tight">
+                <div className="break-all font-display text-xl font-bold tracking-tight sm:text-2xl">
                   {filename || "your.pdf"}
                 </div>
               </div>
@@ -395,6 +484,9 @@ export default function NewDeckPage() {
                 </button>
               )}
             </div>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Usually under a minute. Keep this tab open until it finishes.
+            </p>
             <StripedProgress
               value={progressPct}
               label={stages.find((s) => s.key === progressPhase)?.label}

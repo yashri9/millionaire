@@ -62,3 +62,11 @@ export function publishDeckSnapshot(opts: {
   saveShare(share);
   return share;
 }
+
+/** Drop the local record of a deck's link (after unpublish/revoke). */
+export function forgetShare(deckId: string) {
+  const token = getShareTokenForDeck(deckId);
+  if (token) localStorage.removeItem(KEY(token));
+  localStorage.removeItem(KEY_BY_DECK(deckId));
+  window.dispatchEvent(new CustomEvent("voxdeck:share", { detail: { token: null } }));
+}

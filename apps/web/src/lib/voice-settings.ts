@@ -36,8 +36,8 @@ export const VOICE_PRESETS: {
 }[] = [
   {
     id: "browser",
-    name: "Browser voice",
-    tag: "Free · device speech",
+    name: "Standard voice",
+    tag: "Free · built into your device",
     elevenLabsId: "",
     engine: "browser",
   },

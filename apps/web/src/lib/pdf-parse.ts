@@ -11,11 +11,14 @@
  */
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
 import type { DeckSlide, SlideWord } from "@/lib/deck-store";
-import { needsOcr, ocrCanvas } from "@/lib/ocr";
+import { needsOcr, ocrCanvasDetailed } from "@/lib/ocr";
+import { visionOcrPage } from "@/lib/vision-ocr-client";
 import {
   extractiveFallback,
   detectChartFromOcr,
+  pickBestOcr,
   reconcileTextAndOcr,
+  shouldEscalateToVision,
   structureSlideContent,
   type TextRun,
 } from "@voxdeck/narration";
@@ -265,9 +268,12 @@ export async function parsePdfToSlides(
       }
       pageText = pageText.trim();
 
-      // 600px / 0.62 JPEG keeps previews readable while staying under Safari's
-      // ~5MB localStorage budget. IndexedDB + Blob previews is the long-term path.
-      const targetWidth = 600;
+      // Was 600px / 0.62 JPEG: soft on a laptop stage (~1100 CSS px, 2x DPR).
+      // 1280px / 0.7 is sharp at laptop size and still ~120-200KB per slide.
+      // Safari's ~5MB localStorage cap can now be hit on very long decks; that
+      // path already shows DECK_SAVE_QUOTA_MESSAGE. IndexedDB + Blob previews
+      // is the long-term fix. Cloud decks are unaffected (server renders 1600px).
+      const targetWidth = 1280;
       const scale = targetWidth / pageW;
       const scaled = page.getViewport({ scale });
       const canvas = document.createElement("canvas");
@@ -282,7 +288,7 @@ export async function parsePdfToSlides(
       }
       await page.render({ canvasContext: ctx, viewport: scaled, canvas })
         .promise;
-      const thumbnail = canvas.toDataURL("image/jpeg", 0.62);
+      const thumbnail = canvas.toDataURL("image/jpeg", 0.7);
 
       let resolvedText = pageText;
       let usedOcr = false;
@@ -292,7 +298,27 @@ export async function parsePdfToSlides(
       if (needsOcr(pageText)) {
         onProgress?.({ phase: "ocr", current: p, total });
         try {
-          const ocrText = await ocrCanvas(canvas);
+          const tess = await ocrCanvasDetailed(canvas);
+          let ocrText = tess.text;
+          // Cloud Vision only when text layer + Tesseract both come up short.
+          const decision = shouldEscalateToVision({
+            textLayer: pageText,
+            tesseractText: tess.text,
+            tesseractConfidence: tess.confidence ?? undefined,
+          });
+          if (decision.escalate) {
+            const visionText = await visionOcrPage(page);
+            const best = pickBestOcr(tess.text, visionText);
+            ocrText = best.text;
+            if (process.env.NODE_ENV !== "production") {
+              console.info("[pdf-parse] vision fallback", {
+                pageIndex: i,
+                reason: decision.reason,
+                engine: best.engine,
+                chars: best.text.length,
+              });
+            }
+          }
           ocrDetectedChart = detectChartFromOcr(ocrText);
           const reconciled = reconcileTextAndOcr(pageText, ocrText);
           resolvedText = reconciled.text;

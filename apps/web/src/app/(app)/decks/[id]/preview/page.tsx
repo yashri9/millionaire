@@ -2,41 +2,34 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/shell";
-import { Button, Waveform } from "@/components/ui-kit";
+import { Button } from "@/components/ui-kit";
 import { getCachedDeck, type DeckSlide } from "@/lib/deck-store";
-import { getAllHighlights, useHighlights } from "@/lib/highlight-store";
-import { useHighlightScheduler } from "@/hooks/use-highlight-scheduler";
-import { SlidePlaybackStage } from "@/components/highlights/SlidePlaybackStage";
-import { getPlaybackState } from "@/lib/playback-state";
-import {
-  useSpeechNarration,
-  usePrefetchNarration,
-  unlockNarrationAudioSync,
-} from "@/hooks/use-speech-narration";
+import { getAllHighlights } from "@/lib/highlight-store";
 import { useHydrateDeck } from "@/hooks/use-hydrate-deck";
+import { useDeckPlayback } from "@/hooks/use-deck-playback";
+import { DeckPlayer } from "@/components/deck-flow/DeckPlayer";
+import { FlowSteps } from "@/components/deck-flow/FlowSteps";
+import {
+  fmt,
+  getRehearsedRevision,
+  markRehearsed,
+  slidesMissingNarration,
+} from "@/lib/deck-runtime";
+import { getShare, getShareTokenForDeck } from "@/lib/share-store";
 
-function fmt(s: number) {
-  const n = Math.max(0, Math.floor(s));
-  return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
-}
-
-export default function PreviewPage() {
+export default function RehearsePage() {
   const params = useParams();
   const id = String(params.id ?? "");
-  const [DECK_SLIDES, setDeckSlides] = useState<DeckSlide[]>([]);
+  const [title, setTitle] = useState("Untitled deck");
+  const [slides, setSlides] = useState<DeckSlide[]>([]);
   const [revision, setRevision] = useState(0);
-  const [idx, setIdx] = useState(0);
-  const [enlarged, setEnlarged] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const deckFrameRef = useRef<HTMLDivElement>(null);
-  const narrationRef = useRef<{
-    pause: () => void;
-    start: (scriptOverride?: string) => void;
-    restart: () => void;
-  } | null>(null);
+  const [rehearsedRev, setRehearsedRev] = useState<number | null>(null);
+  const [publishedRev, setPublishedRev] = useState<number | null>(null);
+  const [hlBySlide, setHlBySlide] = useState<Record<string, number>>({});
 
   const { state: hydrateState, reload } = useHydrateDeck(id);
 
@@ -47,11 +40,12 @@ export default function PreviewPage() {
     }
     if (hydrateState.status === "error") {
       setLoadError(hydrateState.error);
-      setDeckSlides([]);
+      setSlides([]);
       setHydrated(true);
       return;
     }
-    setDeckSlides(hydrateState.deck.slides);
+    setTitle(hydrateState.deck.title || "Untitled deck");
+    setSlides(hydrateState.deck.slides);
     setRevision(hydrateState.deck.revision ?? 0);
     setLoadError(null);
     setHydrated(true);
@@ -60,114 +54,44 @@ export default function PreviewPage() {
       const working = getAllHighlights(id);
       if (Object.keys(working).length === 0 && Object.keys(deck.highlights).length > 0) {
         try {
-          localStorage.setItem(
-            `voxdeck:highlights:${id}`,
-            JSON.stringify(deck.highlights),
-          );
+          localStorage.setItem(`voxdeck:highlights:${id}`, JSON.stringify(deck.highlights));
         } catch {
           /* ignore */
         }
       }
     }
+    const all = getAllHighlights(id);
+    setHlBySlide(Object.fromEntries(Object.entries(all).map(([k, v]) => [k, v.length])));
+    setRehearsedRev(getRehearsedRevision(id));
+    const token = getShareTokenForDeck(id);
+    setPublishedRev(token ? (getShare(token)?.revision ?? null) : null);
   }, [hydrateState, id]);
 
-  const active = DECK_SLIDES[idx] ?? DECK_SLIDES[0];
-  const totalDur = DECK_SLIDES.reduce((a, s) => a + s.durationSec, 0);
-  const priorDur = DECK_SLIDES.slice(0, idx).reduce((a, s) => a + s.durationSec, 0);
+  const p = useDeckPlayback({
+    deckId: id,
+    slides,
+    onFinished: () => {
+      markRehearsed(id, revision);
+      setRehearsedRev(revision);
+    },
+  });
 
-  const { items: highlights } = useHighlights(id, active?.n ?? "01");
-
-  const advanceOrStop = useCallback(() => {
-    setIdx((i) => {
-      if (i < DECK_SLIDES.length - 1) {
-        const next = DECK_SLIDES[i + 1];
-        narrationRef.current?.start(next?.script ?? "");
-        return i + 1;
-      }
-      return i;
-    });
-  }, [DECK_SLIDES]);
-
-  const narration = useSpeechNarration(active?.script ?? "", advanceOrStop);
-  narrationRef.current = narration;
-  const playing = narration.playing;
-  const elapsed = narration.currentTime;
-  const slideDur =
-    narration.duration > 0 ? narration.duration : (active?.durationSec ?? 0);
-  const currentAbs = priorDur + Math.min(elapsed, slideDur || elapsed);
-  const progressPct = totalDur > 0 ? (currentAbs / totalDur) * 100 : 0;
-
-  const activeHighlights = useHighlightScheduler(
-    active?.script ?? "",
-    slideDur || 8,
-    highlights,
-    elapsed,
-  );
-
-  // Shared engine — same calc as Published deck
-  const playback = useMemo(
-    () =>
-      getPlaybackState({
-        slideId: active?.n ?? "",
-        script: active?.script ?? "",
-        durationSec: slideDur || 8,
-        currentTimeMs: elapsed * 1000,
-        isPlaying: playing,
-        highlights,
-        tokens: narration.tokens,
-      }),
-    [active?.n, active?.script, slideDur, elapsed, playing, highlights, narration.tokens],
-  );
-  void playback;
-
-  const slideScripts = useMemo(
-    () => DECK_SLIDES.map((s) => s.script),
-    [DECK_SLIDES],
-  );
-  const { ready: ttsReady, total: ttsTotal, prefetching: ttsPrefetching } =
-    usePrefetchNarration(slideScripts);
-
-  const captionRef = useRef<HTMLDivElement>(null);
-  const slideStageRef = useRef<HTMLDivElement>(null);
-
-  const exitEnlarge = useCallback(() => {
-    setEnlarged(false);
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => undefined);
-    }
-  }, []);
-
-  const enterEnlarge = useCallback(() => {
-    setEnlarged(true);
-    const el = deckFrameRef.current;
-    if (el && el.requestFullscreen) {
-      void el.requestFullscreen().catch(() => undefined);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!enlarged) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        exitEnlarge();
-      }
-    };
-    const onFs = () => {
-      if (!document.fullscreenElement) setEnlarged(false);
-    };
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("fullscreenchange", onFs);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("fullscreenchange", onFs);
-    };
-  }, [enlarged, exitEnlarge]);
+  const missing = useMemo(() => slidesMissingNarration(slides), [slides]);
+  const rehearsedLatest = rehearsedRev != null && rehearsedRev >= revision;
+  const isPublished = publishedRev != null;
+  const publishLabel = isPublished
+    ? publishedRev! < revision
+      ? "Update live link"
+      : "Open your live link"
+    : "Get the share link";
 
   if (!hydrated || hydrateState.status === "loading") {
     return (
       <AppShell variant="app">
-        <div className="p-8 text-sm text-muted-foreground">Loading deck…</div>
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+          <div className="h-8 w-64 animate-pulse rounded-full bg-muted" />
+          <div className="mt-6 aspect-[16/9] w-full max-w-4xl animate-pulse rounded-2xl bg-muted" />
+        </div>
       </AppShell>
     );
   }
@@ -176,7 +100,7 @@ export default function PreviewPage() {
     return (
       <AppShell variant="app">
         <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
-          <p className="font-display text-2xl font-bold tracking-tight">Couldn&apos;t open preview</p>
+          <p className="font-display text-2xl font-bold tracking-tight">Couldn&apos;t open rehearsal</p>
           <p className="text-sm text-muted-foreground">{loadError}</p>
           <div className="flex gap-3">
             <Button type="button" onClick={() => void reload()}>
@@ -193,285 +117,212 @@ export default function PreviewPage() {
     );
   }
 
-  if (!active) {
+  if (!p.active) {
     return (
       <AppShell variant="app">
-        <div className="p-8 text-sm text-muted-foreground">No slides in this deck.</div>
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
+          <p className="font-display text-2xl font-bold tracking-tight">No slides yet</p>
+          <p className="text-sm text-muted-foreground">Add slides in the editor, then come back to rehearse.</p>
+          <Link href={`/decks/${id}/edit`}>
+            <Button type="button">Open editor</Button>
+          </Link>
+        </div>
       </AppShell>
     );
   }
 
+  const endCard = (
+    <div className="w-full max-w-sm text-center">
+      <div className="eyebrow">That&apos;s the whole deck</div>
+      <p className="mt-1 font-display text-2xl font-bold tracking-tight">
+        {fmt(p.totalDur)} · {slides.length} slides
+      </p>
+      <div className="mt-4 flex flex-col gap-2">
+        <Link
+          href={`/decks/${id}/publish`}
+          className="flex h-11 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background"
+        >
+          {publishLabel} →
+        </Link>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={p.restart}
+            className="flex h-11 flex-1 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold hover:bg-muted"
+          >
+            ⟲ Watch again
+          </button>
+          <Link
+            href={`/decks/${id}/edit?slide=${p.active.n}`}
+            className="flex h-11 flex-1 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold hover:bg-muted"
+          >
+            Edit
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <AppShell variant="app">
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:grid-cols-[280px_1fr] lg:gap-8">
-        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <div>
-            <div className="eyebrow">Rehearse</div>
-            <h1 className="mt-1 font-display text-2xl font-bold leading-tight tracking-tight">
-              Watch it end-to-end
-              <br className="hidden sm:block" />
-              before you send.
-            </h1>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Latest saved revision {revision}. Highlights use the same timing engine as
-              publish.
-            </p>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:pb-10">
+        {/* Header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <FlowSteps
+            deckId={id}
+            current="rehearse"
+            done={[...(rehearsedLatest ? (["rehearse"] as const) : []), ...(isPublished ? (["publish"] as const) : [])]}
+          />
+        </div>
+        <div className="mt-4">
+          <h1 className="font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+            {title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {slides.length} slides · {fmt(p.totalDur)} · this is what viewers will hear.
+          </p>
+        </div>
 
-          <div className="flex min-h-0 flex-col">
-            <div className="eyebrow mb-3 shrink-0">Slides · {DECK_SLIDES.length}</div>
-            <ul className="max-h-[7.5rem] space-y-1 overflow-y-auto overscroll-contain pr-1 font-mono text-xs">
-              {DECK_SLIDES.map((s, i) => {
-                const isActive = i === idx;
-                const done = i < idx;
-                return (
-                  <li key={s.n}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        narration.pause();
-                        setIdx(i);
-                      }}
-                      className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left transition-colors ${
-                        isActive ? "bg-foreground text-background" : "hover:bg-muted"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={`shrink-0 ${isActive ? "text-background/60" : "text-muted-foreground"}`}
-                        >
-                          {s.n}
-                        </span>
-                        <span className="truncate font-sans font-medium">{s.title}</span>
-                      </span>
-                      <span
-                        className={`shrink-0 ${
+        {missing.length > 0 && (
+          <div className="mt-4 flex flex-col gap-2 rounded-xl border border-warn/60 bg-warn/10 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              <strong>
+                {missing.length === 1
+                  ? `Slide ${missing[0]!.n} has no narration.`
+                  : `${missing.length} slides have no narration (${missing.map((s) => s.n).join(", ")}).`}
+              </strong>{" "}
+              Add a line before you publish.
+            </span>
+            <Link
+              href={`/decks/${id}/edit?slide=${missing[0]!.n}`}
+              className="shrink-0 font-semibold underline underline-offset-2"
+            >
+              Fix in editor →
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-8 lg:gap-y-5">
+          {/* Player */}
+          <section className="min-w-0">
+            <DeckPlayer playback={p} title={title} endCard={endCard} />
+            <p className="mt-2 hidden text-[11px] text-muted-foreground lg:block">
+              Shortcuts: <kbd className="font-mono">Space</kbd> play/pause ·{" "}
+              <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> slides ·{" "}
+              <kbd className="font-mono">F</kbd> full screen
+            </p>
+
+          </section>
+
+          {/* Rail */}
+          <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+            <div>
+              <div className="eyebrow mb-2">Slides · {slides.length}</div>
+              <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:max-h-[calc(100dvh-22rem)] lg:flex-col lg:gap-1 lg:overflow-y-auto lg:overflow-x-visible lg:px-0 lg:pr-1">
+                {slides.map((s, i) => {
+                  const isActive = i === p.idx;
+                  const noScript = !s.script?.trim();
+                  const hl = hlBySlide[s.n] ?? 0;
+                  return (
+                    <li key={s.n} className="w-40 shrink-0 lg:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => p.jump(i)}
+                        aria-current={isActive ? "true" : undefined}
+                        className={`flex w-full items-center gap-2 rounded-lg border p-1.5 text-left transition-colors ${
                           isActive
-                            ? "text-background/70"
-                            : done
-                              ? "text-foreground"
-                              : "text-muted-foreground"
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-transparent hover:bg-muted"
                         }`}
                       >
-                        {fmt(s.durationSec)}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          <div className="hidden rounded-2xl border-2 border-foreground bg-accent p-4 offset-shadow-sm lg:block">
-            <div className="eyebrow">Happy with the walkthrough?</div>
-            <p className="mt-1.5 text-sm font-medium leading-snug">
-              Publish a full-screen link anyone can watch.
-            </p>
-            <Link
-              href={`/decks/${id}/publish`}
-              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
-            >
-              Publish → shareable link
-            </Link>
-            <Link
-              href={`/decks/${id}/edit`}
-              className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-            >
-              ← Back to editor
-            </Link>
-          </div>
-        </aside>
-
-        <section>
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <div className="text-xs text-muted-foreground">
-              Rehearse · <span className="text-foreground">how a recipient experiences it</span>
-              {highlights.length > 0 && (
-                <span className="ml-2 pill">
-                  {highlights.length} highlight{highlights.length === 1 ? "" : "s"} on this
-                  slide
-                </span>
-              )}
+                        <span className="relative aspect-[16/9] w-14 shrink-0 overflow-hidden rounded bg-muted">
+                          {s.thumbnail ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={s.thumbnail} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="flex h-full items-center justify-center font-mono text-[10px] text-muted-foreground">
+                              {s.n}
+                            </span>
+                          )}
+                          {isActive && p.playing && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-foreground/40 text-[10px] text-background">
+                              ▶
+                            </span>
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-semibold">
+                            <span className={isActive ? "text-background/60" : "text-muted-foreground"}>
+                              {s.n}
+                            </span>{" "}
+                            {s.title}
+                          </span>
+                          <span
+                            className={`mt-0.5 flex items-center gap-1.5 font-mono text-[10px] ${
+                              isActive ? "text-background/70" : "text-muted-foreground"
+                            }`}
+                          >
+                            {fmt(p.durations[i] ?? 0)}
+                            {hl > 0 && <span>· {hl} hl</span>}
+                            {noScript && (
+                              <span className="rounded bg-warn px-1 font-sans font-semibold text-foreground">
+                                no narration
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <div className="flex items-center gap-1">
-              {DECK_SLIDES.map((s, i) => (
-                <div
-                  key={s.n}
-                  className={`h-1.5 w-6 rounded-full transition-colors ${
-                    i < idx ? "bg-foreground" : i === idx ? "bg-accent" : "bg-muted"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
 
-          <div
-            ref={deckFrameRef}
-            className={
-              enlarged
-                ? "fixed inset-0 z-[100] flex flex-col bg-background"
-                : "animate-rise overflow-hidden rounded-2xl border-2 border-foreground bg-background offset-shadow-sm"
-            }
+            <div className="hidden rounded-2xl border border-border bg-background p-4 lg:block">
+              <p className="mt-1.5 text-sm font-medium leading-snug">
+                {isPublished
+                  ? publishedRev! < revision
+                    ? "You've edited since publishing. Push the changes to your live link."
+                    : "Your link is live and up to date."
+                  : "Happy with it? Get a link anyone can watch."}
+              </p>
+              <Link
+                href={`/decks/${id}/publish`}
+                className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
+              >
+                {publishLabel} →
+              </Link>
+              <Link
+                href={`/decks/${id}/edit?slide=${p.active.n}`}
+                className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                Edit this slide
+              </Link>
+            </div>
+          </aside>
+
+
+        </div>
+      </div>
+
+      {/* Mobile / tablet: next step always in reach */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <div className="mx-auto flex max-w-3xl gap-2">
+          <Link
+            href={`/decks/${id}/edit?slide=${p.active.n}`}
+            className="flex h-11 items-center justify-center rounded-full border border-border px-4 text-xs font-semibold"
           >
-            {enlarged && (
-              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
-                <div className="text-xs text-muted-foreground">
-                  Full screen · slide {idx + 1} / {DECK_SLIDES.length}
-                </div>
-                <button
-                  type="button"
-                  onClick={exitEnlarge}
-                  className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
-                >
-                  ✕ Exit
-                </button>
-              </div>
-            )}
-
-            <div
-              className={
-                enlarged
-                  ? "flex min-h-0 flex-1 items-center justify-center bg-foreground/5 p-3 sm:p-6"
-                  : undefined
-              }
-            >
-              <div
-                key={active.n}
-                className={
-                  enlarged
-                    ? "w-full max-w-[min(100%,calc((100vh-7rem)*16/9))] overflow-hidden rounded-xl border-2 border-foreground bg-background shadow-lg"
-                    : undefined
-                }
-              >
-                <SlidePlaybackStage
-                  slide={active}
-                  slideIndex={idx}
-                  activeHighlights={activeHighlights}
-                  stageRef={slideStageRef}
-                  captionRef={captionRef}
-                  script={active.script}
-                  tokens={narration.tokens}
-                  speakingIdx={narration.speakingIdx}
-                  durationSec={slideDur || 8}
-                  timingSource={narration.timingSource}
-                  showCaption={!enlarged}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-3 sm:gap-4 sm:px-5">
-              <button
-                type="button"
-                onClick={() => {
-                  narration.pause();
-                  setIdx((i) => Math.max(0, i - 1));
-                }}
-                disabled={idx === 0}
-                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-30"
-              >
-                ◀ Prev
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (playing) narration.pause();
-                  else narration.start();
-                }}
-                className="flex min-h-11 items-center gap-2 rounded-full bg-foreground px-5 py-2 text-xs font-semibold text-background transition-transform hover:-translate-y-0.5"
-              >
-                {playing ? "❚❚ Pause" : "▶ Play"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  narration.pause();
-                  setIdx(0);
-                  unlockNarrationAudioSync();
-                  narration.restart();
-                }}
-                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-              >
-                ⟲ Restart
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  narration.pause();
-                  setIdx((i) => Math.min(DECK_SLIDES.length - 1, i + 1));
-                }}
-                disabled={idx === DECK_SLIDES.length - 1}
-                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-30"
-              >
-                Next ▶
-              </button>
-              <button
-                type="button"
-                onClick={() => (enlarged ? exitEnlarge() : enterEnlarge())}
-                className="min-h-11 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-                title={enlarged ? "Exit full screen" : "Show deck full screen"}
-              >
-                {enlarged ? "↘ Shrink" : "⛶ Enlarge"}
-              </button>
-              <div className="flex-1" />
-              <Waveform className={playing ? "text-accent" : "text-muted-foreground"} />
-              <div className="font-mono text-xs text-muted-foreground">
-                Slide {idx + 1} of {DECK_SLIDES.length} · {fmt(currentAbs)} / {fmt(totalDur)}
-                {ttsPrefetching ? ` · voice ${ttsReady}/${ttsTotal}` : ""}
-              </div>
-            </div>
-
-            <div className="h-1 bg-muted">
-              <div
-                className="h-full bg-accent transition-all duration-100"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <Tile k="Runtime" v={fmt(totalDur)} hint="if watched end-to-end" />
-            <Tile k="Slides" v={`${DECK_SLIDES.length}`} hint="all narrated" />
-            <Tile
-              k="Highlights"
-              v={String(highlights.length)}
-              hint={
-                highlights.length === 0
-                  ? "add markers in the editor"
-                  : "fire between start & end words"
-              }
-            />
-          </div>
-
-          <div className="mt-6 rounded-2xl border-2 border-foreground bg-accent p-4 offset-shadow-sm lg:hidden">
-            <div className="eyebrow">Happy with the walkthrough?</div>
-            <p className="mt-1.5 text-sm font-medium leading-snug">
-              Publish a full-screen link anyone can watch.
-            </p>
-            <Link
-              href={`/decks/${id}/publish`}
-              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background"
-            >
-              Publish → shareable link
-            </Link>
-            <Link
-              href={`/decks/${id}/edit`}
-              className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold"
-            >
-              ← Back to editor
-            </Link>
-          </div>
-        </section>
+            Edit
+          </Link>
+          <Link
+            href={`/decks/${id}/publish`}
+            className="flex h-11 flex-1 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background"
+          >
+            {publishLabel} →
+          </Link>
+        </div>
       </div>
     </AppShell>
   );
 }
 
-function Tile({ k, v, hint }: { k: string; v: string; hint?: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-background p-4">
-      <div className="eyebrow">{k}</div>
-      <div className="mt-1 font-display text-2xl font-bold tracking-tight">{v}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
-    </div>
-  );
-}

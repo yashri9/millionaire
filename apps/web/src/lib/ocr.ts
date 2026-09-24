@@ -54,6 +54,22 @@ export async function ocrCanvas(
   return cleanOcrText(data.text ?? "");
 }
 
+/**
+ * Same as ocrCanvas, plus Tesseract's mean confidence (0-100). The confidence
+ * feeds shouldEscalateToVision: long-but-wrong Tesseract output on a scan has
+ * low confidence even when it "looks" like text.
+ */
+export async function ocrCanvasDetailed(
+  source: HTMLCanvasElement | string,
+): Promise<{ text: string; confidence: number | null }> {
+  const worker = await getWorker();
+  const { data } = await worker.recognize(source);
+  return {
+    text: cleanOcrText(data.text ?? ""),
+    confidence: typeof data.confidence === "number" ? data.confidence : null,
+  };
+}
+
 /** Alias kept for callers that prefer the longer name. */
 export const ocrPageImage = ocrCanvas;
 

@@ -2,6 +2,7 @@
 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, TextareaHTMLAttributes, ReactNode } from "react";
 import { forwardRef } from "react";
+import Link from "next/link";
 
 /* ------------ Buttons ------------ */
 
@@ -45,18 +46,53 @@ Button.displayName = "Button";
 export function OffsetButton({
   children,
   className = "",
+  href,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { href?: string }) {
+  const classes = `relative inline-flex h-12 min-h-12 items-center justify-center gap-2 rounded-full border-2 border-foreground bg-foreground px-7 text-sm font-semibold text-background transition-transform group-hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 ${className}`;
   return (
     <div className="group relative inline-block">
-      <div className="pointer-events-none absolute inset-0 translate-x-1 translate-y-1 rounded-full bg-accent transition-transform group-hover:translate-x-0 group-hover:translate-y-0" />
-      <button
-        {...props}
-        className={`relative inline-flex h-12 items-center gap-2 rounded-full border-2 border-foreground bg-foreground px-7 text-sm font-semibold text-background focus-visible:outline-none ${className}`}
-      >
-        {children}
-      </button>
+      <div className="pointer-events-none absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-full bg-accent transition-transform duration-200 group-hover:translate-x-1 group-hover:translate-y-1" />
+      {href ? (
+        <Link href={href} className={classes}>
+          {children}
+        </Link>
+      ) : (
+        <button {...props} className={classes}>
+          {children}
+        </button>
+      )}
     </div>
+  );
+}
+
+/** Secondary outline CTA that can be a Link or button. */
+export function GhostCta({
+  children,
+  className = "",
+  href,
+  tone = "light",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  href?: string;
+  tone?: "light" | "dark";
+}) {
+  const toneClasses =
+    tone === "dark"
+      ? "border-background/35 text-background hover:border-background hover:bg-background/10"
+      : "border-2 border-foreground bg-background text-foreground hover:bg-foreground hover:text-background";
+  const classes = `inline-flex h-12 min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 ${toneClasses} ${className}`;
+  if (href) {
+    return (
+      <Link href={href} className={classes}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" {...props} className={classes}>
+      {children}
+    </button>
   );
 }
 

@@ -57,6 +57,7 @@ export default function ViewerPage() {
               narration: string;
               text: string;
               thumbnail?: string;
+              image?: string;
             }[];
           };
         };
@@ -79,6 +80,7 @@ export default function ViewerPage() {
               Math.round((s.narration.trim().split(/\s+/).filter(Boolean).length / 155) * 60),
             ),
             thumbnail: s.thumbnail,
+            image: s.image,
             pageText: s.text,
           })),
         });

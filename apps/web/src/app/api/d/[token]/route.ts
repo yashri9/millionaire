@@ -36,6 +36,8 @@ export async function GET(_req: Request, { params }: Ctx) {
         slides: signed.map((s) => ({
           ...s,
           thumbnail: s.thumb_url || s.image_url,
+          // Recipients watch full-screen; send the full-resolution page too.
+          image: s.image_url || s.thumb_url,
         })),
       },
     });

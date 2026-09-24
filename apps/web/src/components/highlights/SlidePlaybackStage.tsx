@@ -52,10 +52,11 @@ export function SlidePlaybackStage({
   return (
     <>
       <div ref={stageRef} className="relative aspect-[16/9] bg-background">
-        {slide.thumbnail ? (
+        {slide.image || slide.thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={slide.thumbnail}
+            src={slide.image || slide.thumbnail}
+            decoding="async"
             alt={slide.title}
             data-slide-element="page"
             className="absolute inset-0 h-full w-full object-contain"
@@ -119,7 +120,6 @@ export function SlidePlaybackStage({
 
       {showCaption && (
         <div ref={captionRef} className="relative border-t border-border bg-chalk/40 px-6 py-4">
-          <div className="eyebrow mb-2">Narration</div>
           <SyncedTranscript
             script={script}
             tokens={tokens}

@@ -21,7 +21,13 @@ export type SlideWord = {
 
 export type DeckSlide = SeedSlide & {
   essentialPoints?: string[];
+  /** Small preview for lists and rails (server thumb is 400px wide). */
   thumbnail?: string;
+  /**
+   * Full-resolution page image (server renders 1600px wide). Use this for the
+   * big slide stage. Falling back to `thumbnail` is what made slides blurry.
+   */
+  image?: string;
   pageText?: string;
   words?: SlideWord[];
   slideContent?: SlideContent;

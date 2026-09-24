@@ -9,7 +9,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useCallback, type RefObject } from "react";
-import { AppShell, Wordmark } from "@/components/shell";
+import { AppShell } from "@/components/shell";
+import { FlowSteps } from "@/components/deck-flow/FlowSteps";
 import { Button, StripedProgress, Waveform } from "@/components/ui-kit";
 import { ComingSoonBadge } from "@/components/ui-panel";
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
@@ -80,10 +81,14 @@ function fmtDur(sec: number) {
 function slidesForStored(slides: StoredSlide[]): {
   slides: Slide[];
   thumbs: Record<string, string>;
+  images: Record<string, string>;
 } {
   const thumbs: Record<string, string> = {};
+  const images: Record<string, string> = {};
   const out: Slide[] = slides.map((s) => {
     if (s.thumbnail) thumbs[s.n] = s.thumbnail;
+    // Full-res for the stage; the thumb (400px) is only for the slide rail.
+    if (s.image || s.thumbnail) images[s.n] = (s.image || s.thumbnail)!;
     const pageText = s.pageText ?? "";
     const essentialPoints =
       s.essentialPoints?.length
@@ -101,7 +106,7 @@ function slidesForStored(slides: StoredSlide[]): {
       lowConfidenceFlags: s.lowConfidenceFlags ?? [],
     };
   });
-  return { slides: out, thumbs };
+  return { slides: out, thumbs, images };
 }
 
 const statusDot: Record<SlideStatus, string> = {
@@ -130,9 +135,16 @@ export default function EditorPage() {
   // ("Deck not found" on server vs real title on client).
   const [deckTitle, setDeckTitle] = useState("Untitled deck");
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [stageImages, setStageImages] = useState<Record<string, string>>({});
   const [slides, setSlides] = useState<Slide[]>([]);
   const [selected, setSelected] = useState<string>("01");
   const [regenerating, setRegenerating] = useState(false);
+  /** Result of the last Shorten / Punch it up / Regenerate: undo or error. */
+  const [refineNote, setRefineNote] = useState<
+    | { kind: "undo"; slide: string; previous: string; label: string }
+    | { kind: "error"; slide: string; message: string }
+    | null
+  >(null);
   const narrationRef = useRef<{
     pause: () => void;
     start: (scriptOverride?: string) => void;
@@ -165,8 +177,18 @@ export default function EditorPage() {
     const mapped = slidesForStored(hydrateState.deck.slides);
     setDeckTitle(hydrateState.deck.title);
     setThumbs(mapped.thumbs);
+    setStageImages(mapped.images);
     setSlides(mapped.slides);
-    setSelected(mapped.slides[0]?.n ?? "01");
+    // Deep link from Rehearse / Publish: /decks/:id/edit?slide=05
+    const wanted =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("slide")
+        : null;
+    setSelected(
+      wanted && mapped.slides.some((s) => s.n === wanted)
+        ? wanted
+        : (mapped.slides[0]?.n ?? "01"),
+    );
     setLoadError(null);
     setHydrated(true);
   }, [hydrateState]);
@@ -424,7 +446,9 @@ export default function EditorPage() {
       punch: "Punching up",
       regenerate: "Regenerating",
     };
-    void labels;
+    const previous = active.script;
+    const slideAtStart = selected;
+    setRefineNote(null);
     try {
       const res = await fetch("/api/script/rewrite", {
         method: "POST",
@@ -447,9 +471,24 @@ export default function EditorPage() {
         setSlides((prev) =>
           prev.map((s) => (s.n === selected ? { ...s, status: "ready" } : s)),
         );
+        // Rewrites replace the owner's words — always offer a one-tap undo.
+        setRefineNote({ kind: "undo", slide: slideAtStart, previous, label: labels[mode] });
+      } else {
+        setRefineNote({
+          kind: "error",
+          slide: slideAtStart,
+          message:
+            res.status === 429
+              ? "Rewrite limit reached for now. Your line is unchanged - try again in a minute."
+              : "Couldn't rewrite this line. Your text is unchanged - try again.",
+        });
       }
     } catch {
-      /* keep current line */
+      setRefineNote({
+        kind: "error",
+        slide: slideAtStart,
+        message: "You look offline. Your text is unchanged - try again when you're connected.",
+      });
     } finally {
       setRegenerating(false);
       autosave.markDirty("narration_text");
@@ -494,10 +533,8 @@ export default function EditorPage() {
       }
 
       if (e.key === "Escape") {
-        if (narrationOpen) {
-          setNarrationOpen(false);
-          return;
-        }
+        // Escape closes the side panel only. It used to collapse the script
+        // editor too, which hid the thing the owner was working on.
         if (railTool) {
           setRailTool(null);
           return;
@@ -560,37 +597,28 @@ export default function EditorPage() {
         {/* ═══ Single editor header (reference structure) ═══ */}
         <header className="relative flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <Wordmark className="shrink-0 scale-90 origin-left" />
+            {/* Was the marketing Wordmark linking to "/" (the landing page) with no save flush. */}
+            <button
+              type="button"
+              onClick={() => void navigateAfterFlush("/dashboard")}
+              aria-label="Back to your decks"
+              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <span aria-hidden>←</span>
+              <span className="hidden md:inline">Decks</span>
+            </button>
             <div className="hidden h-5 w-px bg-border sm:block" />
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold">{deckTitle || "Untitled deck"}</div>
               <div className="hidden text-[10px] text-muted-foreground sm:block">
-                {slides.length} slides · rev {autosave.savedRevision}
+                {slides.length} slides
               </div>
             </div>
           </div>
 
-          {/* Single mode switch — stacks under title on narrow screens */}
-          <div className="absolute left-1/2 hidden -translate-x-1/2 items-center rounded-full bg-muted p-1 sm:flex">
-            <Link
-              href="/dashboard"
-              className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-              Home
-            </Link>
-            <span className="rounded-full bg-background px-3 py-1.5 text-xs font-semibold shadow-sm">
-              Edit
-            </span>
-            <Link
-              href={`/decks/${id}/preview`}
-              onClick={(e) => {
-                e.preventDefault();
-                void navigateAfterFlush(`/decks/${id}/preview`);
-              }}
-              className="rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-              Preview
-            </Link>
+          {/* Same Edit → Rehearse → Publish stepper as the other two screens. */}
+          <div className="absolute left-1/2 hidden -translate-x-1/2 lg:block">
+            <FlowSteps deckId={id} current="edit" onNavigate={(href) => void navigateAfterFlush(href)} />
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -602,20 +630,24 @@ export default function EditorPage() {
             <button
               type="button"
               disabled={navBusy || autosave.status === "saving"}
-              onClick={() => void navigateAfterFlush(`/decks/${id}/publish`)}
+              onClick={() => void navigateAfterFlush(`/decks/${id}/preview`)}
               className="inline-flex h-9 items-center gap-1 rounded-full bg-foreground px-4 text-xs font-semibold text-background hover:-translate-y-0.5 disabled:opacity-60"
             >
-              {navBusy || autosave.status === "saving" ? "Saving…" : "Publish"}
+              {navBusy || autosave.status === "saving" ? "Saving…" : "Rehearse →"}
             </button>
           </div>
         </header>
+        {/* Phone / iPad: the stepper had no home here (the old mode switch was hidden below 640px). */}
+        <div className="flex shrink-0 items-center justify-center border-b border-border bg-background px-3 py-1.5 lg:hidden">
+          <FlowSteps deckId={id} current="edit" onNavigate={(href) => void navigateAfterFlush(href)} />
+        </div>
 
         {/* ═══ Body: rail | optional panel | canvas column ═══ */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Slim tool rail */}
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          {/* Slim tool rail. On phones it is a row above the slide so the slide gets the full width. */}
           <nav
             data-editor-rail
-            className="flex w-[64px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-background py-2"
+            className="flex h-11 w-full shrink-0 flex-row items-center gap-1 border-b border-border bg-background px-2 md:h-auto md:w-[64px] md:flex-col md:gap-0.5 md:border-b-0 md:border-r md:px-0 md:py-2"
             aria-label="Editor tools"
           >
             {RAIL.map((t) => {
@@ -628,24 +660,28 @@ export default function EditorPage() {
                   aria-label={t.label}
                   aria-pressed={on}
                   onClick={() => toggleRail(t.id)}
-                  className={`flex w-[56px] flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium transition-colors ${
+                  className={`flex h-9 flex-row items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors md:h-auto md:w-[56px] md:flex-col md:gap-0.5 md:rounded-xl md:px-1 md:py-2 md:text-[10px] ${
                     on
                       ? "bg-muted text-foreground ring-1 ring-border"
                       : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                   }`}
                 >
-                  <span className="text-lg leading-none">{t.icon}</span>
+                  <span className="text-base leading-none md:text-lg">{t.icon}</span>
                   <span className="leading-tight">{t.label}</span>
                 </button>
               );
             })}
-            <div className="mt-auto pb-2">
+            <div className="ml-auto md:ml-0 md:mt-auto md:pb-2">
               <Link
                 href="/account"
-                className="flex w-[56px] flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void navigateAfterFlush("/account");
+                }}
+                className="flex h-9 flex-row items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground md:h-auto md:w-[56px] md:flex-col md:gap-0.5 md:rounded-xl md:px-1 md:py-2 md:text-[10px]"
                 title="Settings"
               >
-                <span className="text-lg leading-none">⚙</span>
+                <span className="text-base leading-none md:text-lg">⚙</span>
                 <span>Settings</span>
               </Link>
             </div>
@@ -653,7 +689,7 @@ export default function EditorPage() {
 
           {/* Docked asset panel (opens beside rail — Canva/Veed pattern) */}
           {railTool && (
-            <aside className="flex w-[280px] shrink-0 flex-col border-r border-border bg-background sm:w-[300px]">
+            <aside className="absolute inset-y-0 left-0 top-11 z-30 flex w-[min(320px,100vw)] md:top-0 md:left-[64px] md:w-[min(300px,calc(100vw-64px))] shrink-0 flex-col border-r border-border bg-background shadow-xl md:static md:w-[300px] md:shadow-none">
               <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
                 <div className="font-display text-sm font-bold capitalize tracking-tight">
                   {railTool}
@@ -678,6 +714,8 @@ export default function EditorPage() {
                       void autosave.flush();
                       setSelectedRegionId(null);
                       setSelected(n);
+                      // On phone/iPad the panel covers the slide; close it once a slide is picked.
+                      if (typeof window !== "undefined" && window.innerWidth < 768) setRailTool(null);
                     }}
                   />
                 )}
@@ -694,7 +732,7 @@ export default function EditorPage() {
           {/* Canvas + timeline column */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             {/* Canvas stage */}
-            <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden px-4 py-4 sm:px-8">
+            <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-hidden px-3 py-2 sm:gap-3 sm:px-8 sm:py-4">
               <div className="relative min-h-0 w-full flex-1 [container-type:size]">
                 <div
                   key={active.n}
@@ -708,7 +746,7 @@ export default function EditorPage() {
                 >
                   <SlideStage
                     active={active}
-                    thumbs={thumbs}
+                    thumbs={stageImages}
                     activeIndex={activeIndex}
                     highlights={highlights}
                     activeHighlights={activeHighlights}
@@ -732,11 +770,6 @@ export default function EditorPage() {
 
               {/* Floating canvas toolbar (under preview) */}
               <div className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-1.5 py-1 shadow-sm">
-                <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-foreground">
-                  <span className="inline-block h-3 w-4 rounded-[2px] border border-foreground/40" />
-                  16:9
-                </span>
-                <span className="h-4 w-px bg-border" />
                 <div className="relative">
                   <button
                     type="button"
@@ -754,7 +787,7 @@ export default function EditorPage() {
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    Highlight
+                    Highlight area
                   </button>
                   {shapeMenuOpen && !drawingRegion && (
                     <div className="absolute bottom-full left-1/2 z-50 mb-2 w-44 -translate-x-1/2 rounded-xl border-2 border-foreground bg-background p-1.5 offset-shadow-sm">
@@ -797,22 +830,23 @@ export default function EditorPage() {
                   </button>
                 )}
                 <span className="h-4 w-px bg-border" />
-                <span className="px-2 font-mono text-[11px] text-muted-foreground">
-                  {active.n}/{slides.length || 1}
+                <span className="whitespace-nowrap px-2 text-xs text-muted-foreground">
+                  Slide {Math.max(0, slides.findIndex((s) => s.n === active.n)) + 1} of {slides.length || 1}
                 </span>
               </div>
             </div>
 
             {/* Compact narration bar — same footprint as old timeline */}
-            <div className="flex h-[148px] shrink-0 flex-col border-t border-border bg-background">
+            {/* Was a fixed 148px strip: on phone/iPad the script (the thing you edit) sat below the fold at 12px. */}
+            <div className="flex h-[44%] min-h-[220px] shrink-0 flex-col border-t border-border bg-background md:h-[220px] md:min-h-0">
               <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
                 <button
                   type="button"
                   onClick={() => setNarrationOpen((o) => !o)}
-                  className="inline-flex h-6 items-center gap-1 rounded-full border border-accent px-2 text-[10px] font-semibold"
+                  className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold hover:bg-muted"
                   aria-expanded={narrationOpen}
                 >
-                  ✎ Narration
+                  Script {narrationOpen ? "▾" : "▸"}
                 </button>
 
                 <div className="flex flex-1 items-center justify-center gap-1.5">
@@ -846,8 +880,17 @@ export default function EditorPage() {
                   >
                     ⏭
                   </button>
-                  <span className="ml-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {playing ? playReadout : "00:00"} / {spokenReadout}
+                  <button
+                    type="button"
+                    onClick={() => narration.restart()}
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-sm hover:bg-muted"
+                    aria-label="Play this slide from the start"
+                    title="Play this slide from the start"
+                  >
+                    ↺
+                  </button>
+                  <span className="ml-1.5 whitespace-nowrap font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {playing ? playReadout : "0:00"} / {spokenReadout}
                   </span>
                   {narration.loading && (
                     <span className="ml-2 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
@@ -856,7 +899,7 @@ export default function EditorPage() {
                   )}
                   {narration.error && !narration.loading && (
                     <span className="ml-2 max-w-[180px] truncate font-mono text-[9px] text-warn" title={narration.error}>
-                      {narration.error.includes("quota") ? "Quota — browser voice" : "Browser voice"}
+                      Using basic voice
                     </span>
                   )}
                   {ttsPrefetching && (
@@ -869,22 +912,23 @@ export default function EditorPage() {
 
               {narrationOpen ? (
                 <div className="relative min-h-0 flex-1 overflow-y-auto px-3 py-1.5">
-                    <div className="mb-1 flex flex-wrap items-center gap-0.5">
+                    <div className="mb-1 flex flex-wrap items-center gap-0">
                       <button
                         type="button"
                         onClick={openTextHighlightPicker}
                         disabled={!selectionRange}
-                        className={`h-6 rounded-full px-2 text-[10px] font-semibold disabled:opacity-40 ${
+                        title={selectionRange ? "Highlight the selected words" : "Select words in the script first"}
+                        className={`h-8 rounded-full px-2 text-xs sm:px-2.5 font-semibold disabled:opacity-40 ${
                           selectionRange ? "bg-accent text-accent-foreground" : "hover:bg-muted"
                         }`}
                       >
-                        ✎ Highlight
+                        Highlight<span className="hidden sm:inline"> words</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => void refineNarration("shorten")}
                         disabled={regenerating || !active.script.trim()}
-                        className="h-6 rounded-full px-2 text-[10px] font-medium hover:bg-muted disabled:opacity-40"
+                        className="h-8 rounded-full px-2 text-xs sm:px-2.5 font-medium hover:bg-muted disabled:opacity-40"
                       >
                         Shorten
                       </button>
@@ -892,7 +936,7 @@ export default function EditorPage() {
                         type="button"
                         onClick={() => void refineNarration("punch")}
                         disabled={regenerating || !active.script.trim()}
-                        className="h-6 rounded-full px-2 text-[10px] font-medium hover:bg-muted disabled:opacity-40"
+                        className="h-8 rounded-full px-2 text-xs sm:px-2.5 font-medium hover:bg-muted disabled:opacity-40"
                       >
                         Punch it up
                       </button>
@@ -900,16 +944,10 @@ export default function EditorPage() {
                         type="button"
                         onClick={() => void refineNarration("regenerate")}
                         disabled={regenerating}
-                        className="h-6 rounded-full border border-foreground px-2 text-[10px] font-semibold disabled:opacity-40"
+                        title="Write a fresh line for this slide (you can undo)"
+                        className="h-8 rounded-full border border-border px-2 text-xs font-semibold hover:bg-muted disabled:opacity-40 sm:px-2.5"
                       >
                         Regenerate
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => narration.restart()}
-                        className="min-h-11 rounded-full px-3 text-[10px] font-medium hover:bg-muted"
-                      >
-                        Replay
                       </button>
                     </div>
 
@@ -921,19 +959,58 @@ export default function EditorPage() {
                       </div>
                     )}
 
+                    {refineNote && refineNote.slide === active.n && (
+                      <div
+                        role={refineNote.kind === "error" ? "alert" : "status"}
+                        className={`mb-1.5 flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs ${
+                          refineNote.kind === "error"
+                            ? "border-danger/40 bg-danger/10"
+                            : "border-border bg-muted"
+                        }`}
+                      >
+                        <span>
+                          {refineNote.kind === "error"
+                            ? refineNote.message
+                            : `${refineNote.label} done - line replaced.`}
+                        </span>
+                        <span className="flex shrink-0 gap-2">
+                          {refineNote.kind === "undo" && (
+                            <button
+                              type="button"
+                              className="font-semibold underline underline-offset-2"
+                              onClick={() => {
+                                updateScript(refineNote.previous);
+                                setRefineNote(null);
+                              }}
+                            >
+                              Undo
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            aria-label="Dismiss"
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => setRefineNote(null)}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      </div>
+                    )}
+
                     {active.generationMethod === "extractive-fallback" && (
                       <div className="mb-1.5 rounded-md border border-warn/40 bg-warn/10 px-2 py-1 text-[10px] leading-snug text-foreground">
                         {active.lowConfidenceFlags.some((f) =>
                           f.includes("chart-bridge"),
                         )
-                          ? "Chart slide — graph-guide line (OCR saw a chart; numbers not spoken). Edit if you want a tighter pitch."
+                          ? "Chart slide: the numbers aren't read out. Add the one that matters."
                           : active.lowConfidenceFlags.some((f) =>
                                 f.startsWith("number-mismatch") ||
                                 f.startsWith("citation-mismatch") ||
                                 f.startsWith("pairing-mismatch"),
                               )
-                            ? "Draft: AI line failed a grounding check. Edit before presenting."
-                            : "Draft quality: basic fallback. Expect coverage over polish — edit before presenting."}
+                            ? "This line may not match the slide. Check the facts."
+                            : "Written from the slide text. Worth a quick edit."}
                       </div>
                     )}
 
@@ -955,8 +1032,9 @@ export default function EditorPage() {
                         onSelect={onTextareaSelect}
                         onKeyUp={onTextareaSelect}
                         onMouseUp={onTextareaSelect}
-                        rows={3}
-                        className="w-full resize-none border-0 bg-transparent p-0 text-[12px] leading-snug text-foreground placeholder:text-muted-foreground focus:outline-none"
+                        rows={4}
+                        aria-label={`Narration for slide ${active.n}`}
+                        className="min-h-[6rem] w-full resize-none border-0 bg-transparent p-0 text-base leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none md:text-sm"
                         placeholder="Write the line you’d pitch while they look at this slide…"
                       />
                     )}
@@ -1119,6 +1197,7 @@ function SlideStage({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={thumbs[active.n]}
+          decoding="async"
           alt={active.title}
           data-slide-element="page"
           className="absolute inset-0 h-full w-full object-contain"
@@ -1297,7 +1376,7 @@ function VoicePanel({
         window.speechSynthesis.speak(utter);
         lastSampleKey.current = key;
         setSampleReady(true);
-        setStatus("Browser voice · free · no ElevenLabs credits");
+        setStatus("Standard voice · free");
       } else {
         setStatus("Browser speech not available in this browser");
       }
@@ -1346,7 +1425,7 @@ function VoicePanel({
 
   async function applyThisSlide() {
     if (usingBrowser) {
-      setStatus("Browser voice — no rebuild needed (free)");
+      setStatus("Standard voice · nothing to rebuild");
       return;
     }
     setBusy("slide");
@@ -1371,7 +1450,7 @@ function VoicePanel({
 
   async function applyAll() {
     if (usingBrowser) {
-      setStatus("Browser voice — no rebuild needed (free)");
+      setStatus("Standard voice · nothing to rebuild");
       return;
     }
     setBusy("all");

@@ -163,6 +163,13 @@ export function useSpeechNarration(
   onEndRef.current = onEnd;
   const scriptRef = useRef(script);
   scriptRef.current = script;
+  /**
+   * Text most recently passed to start(). When the page advances to the next
+   * slide it calls start(nextScript) *before* React re-renders with the new
+   * `script` prop; without this guard the script-change effect below would
+   * immediately pause the clip we just started (auto-advance dies after slide 1).
+   */
+  const startedTextRef = useRef<string>("");
   const genRef = useRef(0);
   const rafRef = useRef(0);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -346,6 +353,7 @@ export function useSpeechNarration(
     (scriptOverride?: string) => {
       const text = (scriptOverride ?? scriptRef.current).trim();
       if (!text) return;
+      startedTextRef.current = text;
       unlockNarrationAudioSync();
       hardStop();
       const gen = ++genRef.current;
@@ -391,6 +399,7 @@ export function useSpeechNarration(
   );
 
   const pause = useCallback(() => {
+    startedTextRef.current = "";
     hardStop();
     setState((s) => ({ ...s, playing: false, loading: false }));
   }, [hardStop]);
@@ -400,6 +409,8 @@ export function useSpeechNarration(
   }, [start]);
 
   useEffect(() => {
+    // Keep playing when the new script is exactly what start() just began.
+    if (startedTextRef.current && startedTextRef.current === script.trim()) return;
     pause();
   }, [script, pause]);
 

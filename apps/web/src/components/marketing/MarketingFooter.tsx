@@ -8,14 +8,12 @@ const PRODUCT = [
 ];
 
 const COMPANY = [
-  { href: "#pricing", label: "Pricing" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#cta", label: "Get started" },
+  { href: "/decks/new", label: "Get started" },
 ];
 
 const ACCOUNT = [
   { href: "/login", label: "Log in" },
-  { href: "/signup", label: "Sign up" },
+  { href: "/decks/new", label: "Sign up" },
 ];
 
 export function MarketingFooter() {

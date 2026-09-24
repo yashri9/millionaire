@@ -11,8 +11,6 @@ const MARKETING_LINKS = [
   { href: "#how", label: "How it works" },
   { href: "#studio", label: "Examples" },
   { href: "#voices", label: "Voices" },
-  { href: "#pricing", label: "Pricing" },
-  { href: "#faq", label: "FAQ" },
 ];
 
 export function Wordmark({ className = "" }: { className?: string }) {
@@ -98,7 +96,7 @@ export function TopBar({
                 Log in
               </Link>
               <Link
-                href="/signup"
+                href="/decks/new"
                 className="group relative hidden h-10 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md lg:inline-flex"
               >
                 Get started
@@ -160,7 +158,7 @@ export function TopBar({
                 Log in
               </Link>
               <Link
-                href="/signup"
+                href="/decks/new"
                 className="inline-flex h-11 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background"
                 onClick={() => setMenuOpen(false)}
               >

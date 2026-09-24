@@ -134,10 +134,10 @@ export function StudioRehearseSection() {
           Try it right now on a sample deck. No account needed.
         </p>
         <Link
-          href="/signup"
+          href="/decks/new"
           className="mt-8 inline-flex h-11 items-center gap-2 rounded-full border-2 border-foreground bg-background px-5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
         >
-          Open a live sample →
+          Make my own deck →
         </Link>
 
         {/* Sample decks — sits under the studio CTA */}

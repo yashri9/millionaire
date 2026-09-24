@@ -62,3 +62,17 @@ export {
   verifyCitedDataPoints,
   type ChartDataPoint,
 } from "./labeled-facts";
+
+export {
+  shouldEscalateToVision,
+  buildVisionRequest,
+  parseVisionResponse,
+  pickBestOcr,
+  isGoodEnough,
+  ocrQuality,
+  visionCachePath,
+  VisionResponseError,
+  VISION_MIN_CHARS,
+  type EscalationDecision,
+  type VisionOcrResult,
+} from "./ocr-fallback";

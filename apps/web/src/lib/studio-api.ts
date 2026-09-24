@@ -42,6 +42,9 @@ export function storedDeckFromServer(payload: ServerDeckPayload): StoredDeck {
       essentialPoints: bullets.slice(0, 6),
       durationSec: estimateDuration(script),
       thumbnail: s.thumb_url || s.image_url || undefined,
+      // The stage used the 400px thumb, stretched to ~1100px on a laptop
+      // (2200 device px on Retina) - hence the blur. Keep both.
+      image: s.image_url || s.thumb_url || undefined,
       pageText,
       serverSlideId: s.id,
     };

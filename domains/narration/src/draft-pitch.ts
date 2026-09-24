@@ -26,7 +26,7 @@ const BODY = [
 
 const CLOSES = [
   (p: string) => `So the ask is simple: ${uncap(p)}.`,
-  (p: string) => `If this is the outcome you want, let's ${uncap(p)}.`,
+  (p: string) => `If this is the outcome you want, here's what it takes: ${uncap(p)}.`,
   (p: string) => `Next step from here: ${uncap(p)}.`,
 ];
 
@@ -74,7 +74,10 @@ export function draftPitchLine(input: PitchDraftInput): string {
     line = HOOKS[variant](points[0]);
     if (points[1]) line += ` ${BODY[variant](points[0], points[1]).replace(/^.*?[.â€”]\s*/, "")}`;
   } else if (isLast) {
-    line = CLOSES[variant](points[0]);
+    // Close on the substance (e.g. "Raising $500K"), not a bare "The Ask" title
+    const isTitle =
+      points[0].trim().toLowerCase() === (input.title ?? "").trim().toLowerCase();
+    line = CLOSES[variant](isTitle && points[1] ? points[1] : points[0]);
   } else {
     line = BODY[variant](points[0], points[1]);
   }

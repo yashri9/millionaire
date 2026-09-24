@@ -29,6 +29,19 @@ describe("draftPitchLine", () => {
     assert.notEqual(line, page);
     assert.ok(words(line).length <= 34);
   });
+
+  it("closes an Ask slide on the raise, not the title", () => {
+    for (const pageNum of [7, 8, 9]) {
+      const line = draftPitchLine({
+        pageText: "The Ask\nRaising $500K pre-seed\n18 months runway",
+        pageNum,
+        title: "The Ask",
+        totalPages: pageNum,
+      });
+      assert.ok(line.includes("$500K"), line);
+      assert.ok(!/let's the/i.test(line), line);
+    }
+  });
 });
 
 describe("refineScript", () => {

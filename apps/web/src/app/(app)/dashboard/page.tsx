@@ -17,6 +17,7 @@ export default async function DashboardPage() {
     createdAt: number;
     count: number;
     status?: string;
+    lastSlide?: number;
   }[] = [];
   let listError: string | null = null;
 
@@ -29,6 +30,8 @@ export default async function DashboardPage() {
         Date.parse(String(d.updated_at || d.created_at)) || Date.now(),
       count: Number(d.slide_count ?? 0),
       status: d.status as string | undefined,
+      // Was fetched but never shown. Powers "Resume at slide N".
+      lastSlide: Number((d as { last_viewed_slide_index?: number | null }).last_viewed_slide_index ?? 0) || 0,
     }));
   } catch {
     listError = "Couldn't load your decks. Check your connection and retry.";
@@ -37,7 +40,7 @@ export default async function DashboardPage() {
   return (
     <AppShell variant="app">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-12">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-6 md:mb-12">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4 md:mb-10">
           <div>
             <h1 className="font-display text-4xl font-bold tracking-tighter sm:text-5xl">
               Your decks.
@@ -45,7 +48,7 @@ export default async function DashboardPage() {
             {decks.length > 0 ? (
               <p className="mt-2 text-muted-foreground">
                 {decks.length} deck{decks.length === 1 ? "" : "s"} ·{" "}
-                {decks.reduce((n, d) => n + d.count, 0)} slides
+                {decks.filter((d) => d.status === "published").length} live
               </p>
             ) : null}
           </div>
