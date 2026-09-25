@@ -41,6 +41,9 @@ export async function updateSession(request: NextRequest) {
   // left uploads stuck at 40% with pending jobs.
   const isJobsRun = path === "/api/jobs/run";
 
+  // Homepage outbound ?ref= attribution — public, no session.
+  const isTrackClick = path === "/api/track-click";
+
   const isStudioRoute =
     path.startsWith("/dashboard") ||
     path.startsWith("/decks") ||
@@ -90,7 +93,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isJobsRun) {
+  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isJobsRun && !isTrackClick) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -101,7 +104,8 @@ export async function updateSession(request: NextRequest) {
     path === "/" ||
     isAuthPage ||
     isRecipient ||
-    isJobsRun;
+    isJobsRun ||
+    isTrackClick;
 
   if (!user && isStudioRoute) {
     const url = request.nextUrl.clone();
