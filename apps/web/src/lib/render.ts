@@ -15,8 +15,8 @@ import "server-only";
  */
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { existsSync } from "fs";
 import { access, mkdtemp, readFile, rm, writeFile } from "fs/promises";
-import { createRequire } from "module";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
 import { pathToFileURL } from "url";
@@ -25,15 +25,23 @@ import { serverEnv } from "@/lib/env";
 
 const execFileAsync = promisify(execFile);
 
-/** Absolute pdfjs-dist root — walk from cwd so monorepo/Vercel hoisting works. */
+/**
+ * Absolute pdfjs-dist root. Do NOT use createRequire().resolve — Next's
+ * serverless bundle can leave createRequire(…) without .resolve and render crashes.
+ * Walk cwd parents for node_modules/pdfjs-dist (monorepo + Vercel hoisting).
+ */
 function pdfjsPackageRoot(): string {
-  const req = createRequire(join(process.cwd(), "package.json"));
-  try {
-    return dirname(req.resolve("pdfjs-dist/package.json"));
-  } catch {
-    const up = createRequire(join(process.cwd(), "..", "..", "package.json"));
-    return dirname(up.resolve("pdfjs-dist/package.json"));
+  let dir = process.cwd();
+  for (let i = 0; i < 6; i++) {
+    const candidate = join(dir, "node_modules", "pdfjs-dist");
+    if (existsSync(join(candidate, "package.json"))) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
+  throw new Error(
+    `pdfjs-dist not found from cwd=${process.cwd()} — check outputFileTracingIncludes for pdfjs assets`,
+  );
 }
 
 /** pdf.js Node canvas factory (required on serverless — no DOM). */
