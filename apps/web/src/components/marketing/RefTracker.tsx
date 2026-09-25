@@ -1,41 +1,39 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 /**
- * Silently records homepage visits that arrive with ?ref=… once per load.
+ * Silently records homepage visits that arrive with ?ref=… once per browser session.
  * Renders nothing.
  */
-export function TrackOutboundRef() {
+export function RefTracker() {
   const searchParams = useSearchParams();
-  const pathname = usePathname();
 
   useEffect(() => {
     const ref = searchParams.get("ref");
     if (!ref) return;
 
-    const key = `link_click:${pathname}:${ref}`;
+    const key = `ref_click:${ref}`;
     try {
       if (sessionStorage.getItem(key)) return;
       sessionStorage.setItem(key, "1");
     } catch {
-      // sessionStorage may be blocked; still fire once this mount
+      // sessionStorage blocked — still fire once this mount
     }
 
-    void fetch("/api/track-click", {
+    void fetch("/api/track-ref", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ref,
-        path: pathname || "/",
         user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
       }),
       keepalive: true,
     }).catch(() => {
       // Silent — tracking must never affect UX
     });
-  }, [searchParams, pathname]);
+  }, [searchParams]);
 
   return null;
 }

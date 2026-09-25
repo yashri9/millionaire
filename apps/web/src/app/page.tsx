@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/shell";
 import { OasisIpadDemo } from "@/components/marketing/OasisIpadDemo";
 import { StudioRehearseSection } from "@/components/marketing/RehearseDemoStage";
-import { TrackOutboundRef } from "@/components/marketing/TrackOutboundRef";
+import { RefTracker } from "@/components/marketing/RefTracker";
 import "./oasis-borrow.css";
 
 const QUESTIONS = [
@@ -56,7 +56,7 @@ export default function Home() {
   return (
     <AppShell variant="marketing">
       <Suspense fallback={null}>
-        <TrackOutboundRef />
+        <RefTracker />
       </Suspense>
       {/* —— Oasis: intro hero —— */}
       <div className="oasis-borrow">

@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   const isJobsRun = path === "/api/jobs/run";
 
   // Homepage outbound ?ref= attribution — public, no session.
-  const isTrackClick = path === "/api/track-click";
+  const isTrackRef = path === "/api/track-ref";
 
   const isStudioRoute =
     path.startsWith("/dashboard") ||
@@ -93,7 +93,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isJobsRun && !isTrackClick) {
+  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isJobsRun && !isTrackRef) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -105,7 +105,7 @@ export async function updateSession(request: NextRequest) {
     isAuthPage ||
     isRecipient ||
     isJobsRun ||
-    isTrackClick;
+    isTrackRef;
 
   if (!user && isStudioRoute) {
     const url = request.nextUrl.clone();
