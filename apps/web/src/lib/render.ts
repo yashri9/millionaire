@@ -19,15 +19,43 @@ import { access, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { createRequire } from "module";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
-import { createCanvas } from "@napi-rs/canvas";
+import { pathToFileURL } from "url";
+import { createCanvas, type Canvas } from "@napi-rs/canvas";
 import { serverEnv } from "@/lib/env";
 
 const execFileAsync = promisify(execFile);
-const requireFromHere = createRequire(import.meta.url);
 
-/** Absolute pdfjs-dist package root (works in monorepo + Vercel where cwd ≠ node_modules). */
+/** Absolute pdfjs-dist root — walk from cwd so monorepo/Vercel hoisting works. */
 function pdfjsPackageRoot(): string {
-  return dirname(requireFromHere.resolve("pdfjs-dist/package.json"));
+  const req = createRequire(join(process.cwd(), "package.json"));
+  try {
+    return dirname(req.resolve("pdfjs-dist/package.json"));
+  } catch {
+    const up = createRequire(join(process.cwd(), "..", "..", "package.json"));
+    return dirname(up.resolve("pdfjs-dist/package.json"));
+  }
+}
+
+/** pdf.js Node canvas factory (required on serverless — no DOM). */
+function createNodeCanvasFactory() {
+  return {
+    create(width: number, height: number) {
+      const canvas = createCanvas(Math.max(1, width), Math.max(1, height));
+      return { canvas, context: canvas.getContext("2d") };
+    },
+    reset(
+      canvasAndContext: { canvas: Canvas; context: ReturnType<Canvas["getContext"]> },
+      width: number,
+      height: number,
+    ) {
+      canvasAndContext.canvas.width = Math.max(1, width);
+      canvasAndContext.canvas.height = Math.max(1, height);
+    },
+    destroy(canvasAndContext: { canvas: Canvas }) {
+      canvasAndContext.canvas.width = 0;
+      canvasAndContext.canvas.height = 0;
+    },
+  };
 }
 
 export type RenderedPage = {
@@ -73,22 +101,25 @@ const THUMB_SCALE = 0.25;
 const OCR_JPEG_QUALITY = 92;
 export const MAX_PAGES = 60;
 
-async function encodePreferWebp(canvas: {
-  // napi-rs Canvas overloads are awkward to type — accept the runtime object.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toBuffer: (...args: any[]) => Buffer;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  encode?: (...args: any[]) => Promise<Buffer>;
-}): Promise<Buffer> {
+async function encodePreferWebp(canvas: Canvas): Promise<Buffer> {
+  // Prefer async encode — node-canvas compat toBuffer("image/webp", number)
+  // can throw ERR_INVALID_ARG_TYPE on some napi-rs builds in serverless.
   try {
-    if (canvas.encode) return await canvas.encode("webp", WEBP_QUALITY);
-  } catch {
-    /* fall through */
-  }
-  try {
-    return canvas.toBuffer("image/webp", WEBP_QUALITY);
+    return await canvas.encode("webp", WEBP_QUALITY);
   } catch {
     return canvas.toBuffer("image/png");
+  }
+}
+
+async function encodeJpeg(canvas: Canvas): Promise<Buffer | undefined> {
+  try {
+    return await canvas.encode("jpeg", OCR_JPEG_QUALITY);
+  } catch {
+    try {
+      return canvas.toBuffer("image/jpeg", OCR_JPEG_QUALITY);
+    } catch {
+      return undefined;
+    }
   }
 }
 
@@ -154,17 +185,15 @@ export async function convertToPdf(bytes: ArrayBuffer, _filename: string): Promi
   }
 }
 
-async function encodeJpeg(canvas: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toBuffer: (...args: any[]) => Buffer;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  encode?: (...args: any[]) => Promise<Buffer>;
-}): Promise<Buffer | undefined> {
+async function encodeJpeg(canvas: Canvas): Promise<Buffer | undefined> {
   try {
-    if (canvas.encode) return await canvas.encode("jpeg", OCR_JPEG_QUALITY);
-    return canvas.toBuffer("image/jpeg", OCR_JPEG_QUALITY);
+    return await canvas.encode("jpeg", OCR_JPEG_QUALITY);
   } catch {
-    return undefined;
+    try {
+      return canvas.toBuffer("image/jpeg", OCR_JPEG_QUALITY);
+    } catch {
+      return undefined;
+    }
   }
 }
 
@@ -201,12 +230,17 @@ export async function renderPdfPages(
 ): Promise<RenderedPage[]> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const pdfjsDir = pdfjsPackageRoot();
+  const canvasFactory = createNodeCanvasFactory();
+  const standardFontDataUrl = pathToFileURL(join(pdfjsDir, "standard_fonts") + "/").href;
+  const cMapUrl = pathToFileURL(join(pdfjsDir, "cmaps") + "/").href;
 
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(pdfBytes),
-    standardFontDataUrl: join(pdfjsDir, "standard_fonts") + "/",
-    cMapUrl: join(pdfjsDir, "cmaps") + "/",
+    standardFontDataUrl,
+    cMapUrl,
     cMapPacked: true,
+    // @ts-expect-error pdfjs CanvasFactory typing is DOM-oriented; Node factory works at runtime.
+    canvasFactory,
   }).promise;
 
   if (doc.numPages > MAX_PAGES) {
@@ -231,9 +265,10 @@ export async function renderPdfPages(
 
     const [, textContent] = await Promise.all([
       page.render({
-        canvas: null,
         canvasContext: fullCtx as unknown as CanvasRenderingContext2D,
         viewport: fullViewport,
+        // @ts-expect-error Node canvas factory
+        canvasFactory,
       }).promise,
       page.getTextContent().catch(() => ({ items: [] as TextItem[] })),
     ]);
@@ -244,11 +279,9 @@ export async function renderPdfPages(
     );
     const thumbCtx = thumbCanvas.getContext("2d");
     thumbCtx.imageSmoothingEnabled = true;
-    thumbCtx.imageSmoothingQuality = "high";
     thumbCtx.drawImage(fullCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
 
-    // Encodes run on the libuv threadpool (WebP ≈ 90ms/page at 1600px), so we
-    // don't await them here: the next page renders while this one encodes.
+    // Encodes run on the libuv threadpool so the next page can render while this one encodes.
     const textLayer = textContentToLines(textContent.items as TextItem[]);
     page.cleanup();
     const ocrJpegP = encodeJpeg(fullCanvas).then((jpeg) => {
