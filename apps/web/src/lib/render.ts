@@ -26,22 +26,49 @@ import { serverEnv } from "@/lib/env";
 const execFileAsync = promisify(execFile);
 
 /**
- * Absolute pdfjs-dist root. Do NOT use createRequire().resolve — Next's
- * serverless bundle can leave createRequire(…) without .resolve and render crashes.
- * Walk cwd parents for node_modules/pdfjs-dist (monorepo + Vercel hoisting).
+ * Absolute pdfjs-dist root. Walk cwd parents + common Vercel /var/task layouts.
+ * Do NOT use createRequire().resolve — it breaks in the serverless bundle.
  */
-function pdfjsPackageRoot(): string {
-  let dir = process.cwd();
-  for (let i = 0; i < 6; i++) {
-    const candidate = join(dir, "node_modules", "pdfjs-dist");
-    if (existsSync(join(candidate, "package.json"))) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+function pdfjsPackageRoot(): string | null {
+  const guesses = [
+    process.cwd(),
+    join(process.cwd(), ".."),
+    join(process.cwd(), "..", ".."),
+    "/var/task",
+    join("/var/task", "apps", "web"),
+  ];
+  const seen = new Set<string>();
+  for (const start of guesses) {
+    let dir = start;
+    for (let i = 0; i < 6; i++) {
+      if (seen.has(dir)) break;
+      seen.add(dir);
+      const candidate = join(dir, "node_modules", "pdfjs-dist");
+      if (existsSync(join(candidate, "package.json"))) return candidate;
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
   }
-  throw new Error(
-    `pdfjs-dist not found from cwd=${process.cwd()} — check outputFileTracingIncludes for pdfjs assets`,
-  );
+  return null;
+}
+
+/** Font/cmap URLs — prefer local package, else jsDelivr (same major as package.json). */
+function pdfjsAssetUrls(): { standardFontDataUrl: string; cMapUrl: string } {
+  const root = pdfjsPackageRoot();
+  if (root) {
+    return {
+      standardFontDataUrl: pathToFileURL(join(root, "standard_fonts") + "/").href,
+      cMapUrl: pathToFileURL(join(root, "cmaps") + "/").href,
+    };
+  }
+  // Bundled lambda sometimes omits pdfjs assets; CDN keeps render working.
+  const ver = "6.1.200";
+  console.warn("[render] pdfjs-dist assets missing locally — using jsDelivr", ver);
+  return {
+    standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${ver}/standard_fonts/`,
+    cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${ver}/cmaps/`,
+  };
 }
 
 /** pdf.js Node canvas factory (required on serverless — no DOM). */
@@ -225,10 +252,8 @@ export async function renderPdfPages(
   opts: RenderOptions = {},
 ): Promise<RenderedPage[]> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const pdfjsDir = pdfjsPackageRoot();
+  const { standardFontDataUrl, cMapUrl } = pdfjsAssetUrls();
   const canvasFactory = createNodeCanvasFactory();
-  const standardFontDataUrl = pathToFileURL(join(pdfjsDir, "standard_fonts") + "/").href;
-  const cMapUrl = pathToFileURL(join(pdfjsDir, "cmaps") + "/").href;
 
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(pdfBytes),
