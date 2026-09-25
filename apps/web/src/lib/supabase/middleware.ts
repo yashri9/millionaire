@@ -100,7 +100,8 @@ export async function updateSession(request: NextRequest) {
   const isPublic =
     path === "/" ||
     isAuthPage ||
-    isRecipient;
+    isRecipient ||
+    isJobsRun;
 
   if (!user && isStudioRoute) {
     const url = request.nextUrl.clone();
