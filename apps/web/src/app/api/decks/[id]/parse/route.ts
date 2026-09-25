@@ -2,14 +2,17 @@ import { requireUser } from "@/lib/auth";
 import { assertDeckOwner } from "@/lib/ownership";
 import { handle, ApiError } from "@/lib/http";
 import { createServerClient, createServiceClient } from "@/lib/supabase/server";
-import { enqueueJob } from "@/lib/jobs";
+import { enqueueJob, runPendingJobs } from "@/lib/jobs";
 import { serverEnv } from "@/lib/env";
+
+export const maxDuration = 300;
 
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * POST /api/decks/:id/parse — enqueue a durable parse job after TUS upload.
- * Processing runs in /api/jobs/run (cron), not inline on this request.
+ * POST /api/decks/:id/parse — enqueue a durable parse job after TUS upload,
+ * then run the worker in-process so small decks finish without waiting on cron.
+ * (Hobby cron is once/day; fire-and-forget self-fetch dies when the lambda freezes.)
  */
 export async function POST(_req: Request, { params }: Ctx) {
   return handle(async () => {
@@ -42,18 +45,11 @@ export async function POST(_req: Request, { params }: Ctx) {
     await supabase.from("decks").update({ status: "uploading" }).eq("id", id);
     const job = await enqueueJob("parse", id, {}, "parse");
 
-    // Kick the worker immediately (best-effort) so small decks finish fast.
+    // Run now — don't rely on cron or a post-response fetch (both are slow/unreliable).
     try {
-      const secret = process.env.CRON_SECRET || "";
-      const base = process.env.NEXT_PUBLIC_APP_URL || "";
-      if (base) {
-        void fetch(`${base.replace(/\/$/, "")}/api/jobs/run`, {
-          method: "POST",
-          headers: secret ? { authorization: `Bearer ${secret}` } : {},
-        });
-      }
-    } catch {
-      /* cron will pick it up */
+      await runPendingJobs();
+    } catch (err) {
+      console.error("[parse] immediate worker failed; cron/poll may retry", err);
     }
 
     return Response.json({

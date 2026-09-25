@@ -36,6 +36,16 @@ export async function updateSession(request: NextRequest) {
   const isRecipient =
     path.startsWith("/d/") || path.startsWith("/api/d/");
 
+  // Vercel Cron / server kick: Bearer CRON_SECRET, no user session.
+  const cronSecret = process.env.CRON_SECRET || "";
+  const authHeader = request.headers.get("authorization") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const querySecret = request.nextUrl.searchParams.get("secret") || "";
+  const isCronJob =
+    path === "/api/jobs/run" &&
+    Boolean(cronSecret) &&
+    (bearer === cronSecret || querySecret === cronSecret);
+
   const isStudioRoute =
     path.startsWith("/dashboard") ||
     path.startsWith("/decks") ||
@@ -85,7 +95,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (path.startsWith("/api/") && !isRecipient && !isAuthPage) {
+  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isCronJob) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
