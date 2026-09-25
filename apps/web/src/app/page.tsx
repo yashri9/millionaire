@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AppShell } from "@/components/shell";
 import { OasisIpadDemo } from "@/components/marketing/OasisIpadDemo";
 import { StudioRehearseSection } from "@/components/marketing/RehearseDemoStage";
-import { VoicePreviewGrid } from "@/components/marketing/VoicePreviewGrid";
 import "./oasis-borrow.css";
 
 const QUESTIONS = [
@@ -10,20 +9,6 @@ const QUESTIONS = [
   "Did they understand the story?",
   "Should I follow up?",
   "Do I need another meeting to explain it?",
-];
-
-const STEPS = [
-  { n: "01", title: "Upload your deck.", body: "Drop in a PDF. That's the whole setup." },
-  {
-    n: "02",
-    title: "Give it a voice.",
-    body: "Generate narration, choose a voice, and edit the script until it sounds right.",
-  },
-  {
-    n: "03",
-    title: "Send one link.",
-    body: "Share anywhere. No login for viewers, no scheduling, no chase.",
-  },
 ];
 
 const FLOW = [
@@ -158,43 +143,16 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 02 — How it works */}
-      <section id="how" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-12 max-w-lg md:mb-18">
-            <p className="mkt-kicker">02　HOW IT WORKS.</p>
-            <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
-              From deck to <em>self-serve pitch</em> in minutes.
-            </h2>
-            <p className="mkt-body md:text-lg">
-              Three steps from your existing deck to a walkthrough your prospect can watch on their
-              own time.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 items-start gap-y-12 md:grid-cols-3 md:gap-x-8 md:gap-y-16 lg:gap-x-12">
-            {STEPS.map((step) => (
-              <div key={step.n}>
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#07111f28] font-mono text-sm text-[#07111f] md:mb-6">
-                  {step.n}
-                </div>
-                <h3 className="mb-3 text-xl font-normal text-[#07111f] md:mb-4 md:text-2xl">{step.title}</h3>
-                <p className="mkt-body">{step.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 03 — Studio */}
+      {/* 02 — Studio */}
       <section id="studio" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <StudioRehearseSection />
       </section>
 
-      {/* 04 — What prospect sees */}
+      {/* 03 — What prospect sees */}
       <section className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-12 max-w-lg md:mb-18">
-            <p className="mkt-kicker">04　WHAT YOUR PROSPECT SEES.</p>
+            <p className="mkt-kicker">03　WHAT YOUR PROSPECT SEES.</p>
             <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
               One click. <em>No login.</em> No friction.
             </h2>
@@ -224,28 +182,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 05 — Voices */}
-      <section id="voices" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-12 max-w-lg md:mb-18">
-            <p className="mkt-kicker">05　PICK A VOICE.</p>
-            <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
-              Sound like you — <em>or better.</em>
-            </h2>
-            <p className="mkt-body md:text-lg">
-              Choose the voice that fits the way you want your company to sound. Click to preview.
-            </p>
-          </div>
-          <VoicePreviewGrid />
-        </div>
-      </section>
-
       {/* —— Oasis: use cases, audience, quote —— */}
       <div className="border-t border-[#07111f28] bg-[#eaf3ff] px-[5%]">
         <div className="oasis-borrow mx-auto w-full max-w-7xl">
           <section className="uses-section" id="use">
             <div className="uses-lead">
-              <span>06　USE CASES.</span>
+              <span>04　USE CASES.</span>
               <h2>
                 One deck.
                 <br />
@@ -276,7 +218,7 @@ export default function Home() {
 
           <section className="audience">
             <div>
-              <span>07</span>
+              <span>05</span>
               <b>WHO IT&apos;S FOR.</b>
             </div>
             {AUDIENCE.map((x, i) => (
@@ -294,7 +236,7 @@ export default function Home() {
 
           <section className="quote" id="quote">
             <div className="quote-top">
-              <span>08　WHAT USERS SAY.</span>
+              <span>06　WHAT USERS SAY.</span>
               <b>01 / 03</b>
             </div>
             <div className="quote-mark">“</div>
@@ -315,7 +257,7 @@ export default function Home() {
           <div className="close-orbit o1" />
           <div className="close-orbit o2" />
           <div className="close-orbit o3" />
-          <span>09　START WITH LESS.</span>
+          <span>07　START WITH LESS.</span>
           <h2>
             Give it the deck
             <br />

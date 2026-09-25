@@ -1,10 +1,9 @@
 import Link from "next/link";
 
 const PRODUCT = [
-  { href: "#how", label: "How it works" },
   { href: "#studio", label: "Examples" },
-  { href: "#voices", label: "Voices" },
   { href: "#use", label: "Use cases" },
+  { href: "#quote", label: "What users say" },
 ];
 
 const COMPANY = [

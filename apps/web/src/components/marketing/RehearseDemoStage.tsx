@@ -122,7 +122,7 @@ export function StudioRehearseSection() {
     <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-y-12 md:grid-cols-2 md:gap-x-12 lg:gap-x-20">
       {/* Left: story + CTA + sample deck picker */}
       <div>
-        <p className="mkt-kicker">03　THE STUDIO.</p>
+        <p className="mkt-kicker">02　THE STUDIO.</p>
         <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
           <em>Rehearse it</em> before you send it.
         </h2>

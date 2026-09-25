@@ -8,9 +8,8 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 const MARKETING_LINKS = [
-  { href: "#how", label: "How it works" },
   { href: "#studio", label: "Examples" },
-  { href: "#voices", label: "Voices" },
+  { href: "#use", label: "Use cases" },
 ];
 
 export function Wordmark({
