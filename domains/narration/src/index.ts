@@ -64,15 +64,14 @@ export {
 } from "./labeled-facts";
 
 export {
-  shouldEscalateToVision,
   buildVisionRequest,
   parseVisionResponse,
-  pickBestOcr,
+  pickSlideText,
   isGoodEnough,
   ocrQuality,
   visionCachePath,
   VisionResponseError,
   VISION_MIN_CHARS,
-  type EscalationDecision,
   type VisionOcrResult,
+  type SlideTextPick,
 } from "./ocr-fallback";

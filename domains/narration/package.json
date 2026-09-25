@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types --test src/word-timing.test.ts src/pitch-script.test.ts src/slide-content.test.ts src/number-check.test.ts src/reconcile-text-ocr.test.ts src/labeled-facts.test.ts",
+    "test": "node --experimental-strip-types --test src/word-timing.test.ts src/pitch-script.test.ts src/slide-content.test.ts src/number-check.test.ts src/reconcile-text-ocr.test.ts src/labeled-facts.test.ts src/ocr-fallback.test.ts",
     "eval": "node --experimental-strip-types --test evals/narration.eval.ts"
   },
   "devDependencies": {

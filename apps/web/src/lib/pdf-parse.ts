@@ -11,14 +11,13 @@
  */
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
 import type { DeckSlide, SlideWord } from "@/lib/deck-store";
-import { needsOcr, ocrCanvasDetailed } from "@/lib/ocr";
+import { needsOcr } from "@/lib/ocr";
 import { visionOcrPage } from "@/lib/vision-ocr-client";
 import {
   extractiveFallback,
   detectChartFromOcr,
-  pickBestOcr,
+  pickSlideText,
   reconcileTextAndOcr,
-  shouldEscalateToVision,
   structureSlideContent,
   type TextRun,
 } from "@voxdeck/narration";
@@ -295,35 +294,27 @@ export async function parsePdfToSlides(
       let extractionMethod: "text-layer" | "ocr" = "text-layer";
       let ocrDetectedChart = false;
       const t0 = performance.now();
+      // Device draft: Cloud Vision OCR. Matches server Vision-primary path.
       if (needsOcr(pageText)) {
         onProgress?.({ phase: "ocr", current: p, total });
         try {
-          const tess = await ocrCanvasDetailed(canvas);
-          let ocrText = tess.text;
-          // Cloud Vision only when text layer + Tesseract both come up short.
-          const decision = shouldEscalateToVision({
-            textLayer: pageText,
-            tesseractText: tess.text,
-            tesseractConfidence: tess.confidence ?? undefined,
-          });
-          if (decision.escalate) {
-            const visionText = await visionOcrPage(page);
-            const best = pickBestOcr(tess.text, visionText);
-            ocrText = best.text;
-            if (process.env.NODE_ENV !== "production") {
-              console.info("[pdf-parse] vision fallback", {
-                pageIndex: i,
-                reason: decision.reason,
-                engine: best.engine,
-                chars: best.text.length,
-              });
-            }
+          const visionText = await visionOcrPage(page);
+          const pick = pickSlideText(pageText, visionText);
+          ocrDetectedChart = detectChartFromOcr(pick.text);
+          const reconciled = reconcileTextAndOcr(pageText, pick.source === "vision" ? pick.text : visionText ?? "");
+          // Prefer pickSlideText outcome as source of truth for spoken/script text.
+          resolvedText = pick.text || reconciled.text;
+          extractionMethod = pick.source === "vision" ? "ocr" : reconciled.extractionMethod;
+          usedOcr = extractionMethod === "ocr";
+          if (process.env.NODE_ENV !== "production") {
+            console.info("[pdf-parse] vision ocr", {
+              pageIndex: i,
+              reason: pick.reason,
+              source: pick.source,
+              chars: resolvedText.length,
+              ms: Math.round(performance.now() - t0),
+            });
           }
-          ocrDetectedChart = detectChartFromOcr(ocrText);
-          const reconciled = reconcileTextAndOcr(pageText, ocrText);
-          resolvedText = reconciled.text;
-          extractionMethod = reconciled.extractionMethod;
-          usedOcr = reconciled.extractionMethod === "ocr";
         } catch (err) {
           if (process.env.NODE_ENV !== "production") {
             console.warn("[pdf-parse] OCR failed for page", p, err);

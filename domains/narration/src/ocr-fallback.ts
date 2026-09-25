@@ -1,14 +1,12 @@
 /**
- * OCR fallback chain — pure logic, no network, no browser APIs.
+ * Cloud Vision OCR helpers — pure logic, no network, no browser APIs.
  *
- * Chain order (cheapest first):
- *   1. pdf.js text layer  — free, instant, exact. Handles born-digital decks.
- *   2. Tesseract.js       — free, runs in the browser. Handles most image slides.
- *   3. Google Cloud Vision DOCUMENT_TEXT_DETECTION — paid after 1,000 pages/month,
- *      only called when 1 and 2 both come up short (scans, phone photos of slides).
+ * Text per slide = pickSlideText(textLayer, visionText). Vision is primary
+ * because it reads what the viewer sees (text in images, charts, outlined
+ * fonts) in visual order. The pdf.js text layer is kept only when Vision is
+ * empty, unreadable, or clearly missed a rich born-digital page.
  *
- * This file decides WHEN to escalate to step 3, builds the Vision request,
- * parses the Vision response, and picks the better of Tesseract vs Vision.
+ * Also: Vision request builder, response parser, quality helpers, cache path.
  */
 
 /** Below this many characters the page is "short" (matches ocr.ts MIN_TEXT_CHARS). */
@@ -17,8 +15,6 @@ export const VISION_MIN_CHARS = 40;
 export const VISION_MIN_REAL_WORDS = 4;
 /** Share of letters/digits below this = symbol soup, not text. */
 export const VISION_MIN_READABLE = 0.6;
-/** Tesseract confidence (0-100) below this = don't trust it even if it looks long. */
-export const VISION_MIN_TESSERACT_CONFIDENCE = 55;
 
 export type OcrQuality = {
   chars: number;
@@ -44,7 +40,7 @@ export function ocrQuality(text: string): OcrQuality {
   return { chars: t.length, realWords: realWordCount(t), readable: readable(t) };
 }
 
-/** True when this text is good enough that a paid OCR call is not worth it. */
+/** True when this text is good enough to narrate without more OCR. */
 export function isGoodEnough(text: string): boolean {
   const q = ocrQuality(text);
   return (
@@ -52,43 +48,6 @@ export function isGoodEnough(text: string): boolean {
     q.realWords >= VISION_MIN_REAL_WORDS &&
     q.readable >= VISION_MIN_READABLE
   );
-}
-
-export type EscalationInput = {
-  /** Raw pdf.js text layer for the page. */
-  textLayer: string;
-  /** What Tesseract returned ("" if it failed or threw). */
-  tesseractText: string;
-  /** Tesseract mean confidence 0-100, when known. */
-  tesseractConfidence?: number;
-};
-
-export type EscalationDecision = {
-  escalate: boolean;
-  reason:
-    | "text-layer-ok"
-    | "tesseract-ok"
-    | "tesseract-empty"
-    | "tesseract-weak"
-    | "tesseract-low-confidence";
-};
-
-/**
- * Should we spend a Cloud Vision call on this page?
- * Only when BOTH the text layer and Tesseract come up short.
- */
-export function shouldEscalateToVision(input: EscalationInput): EscalationDecision {
-  if (isGoodEnough(input.textLayer)) return { escalate: false, reason: "text-layer-ok" };
-  const tess = (input.tesseractText ?? "").trim();
-  if (!tess) return { escalate: true, reason: "tesseract-empty" };
-  if (
-    typeof input.tesseractConfidence === "number" &&
-    input.tesseractConfidence < VISION_MIN_TESSERACT_CONFIDENCE
-  ) {
-    return { escalate: true, reason: "tesseract-low-confidence" };
-  }
-  if (!isGoodEnough(tess)) return { escalate: true, reason: "tesseract-weak" };
-  return { escalate: false, reason: "tesseract-ok" };
 }
 
 /** Body for POST https://vision.googleapis.com/v1/images:annotate */
@@ -153,30 +112,37 @@ export function cleanVisionText(raw: string): string {
     .trim();
 }
 
-/**
- * Pick the OCR text to hand to reconcileTextAndOcr.
- * Vision wins when it is readable and has at least as many real words as Tesseract
- * (Tesseract hallucinates short fragments on scans; Vision rarely does).
- */
-export function pickBestOcr(
-  tesseractText: string,
-  visionText: string | null | undefined,
-): { text: string; engine: "tesseract" | "vision" } {
-  const v = (visionText ?? "").trim();
-  if (!v) return { text: tesseractText ?? "", engine: "tesseract" };
-  const vq = ocrQuality(v);
-  const tq = ocrQuality(tesseractText ?? "");
-  if (vq.readable < 0.45) return { text: tesseractText ?? "", engine: "tesseract" };
-  if (vq.realWords >= tq.realWords) return { text: v, engine: "vision" };
-  // Vision shorter but much cleaner than Tesseract soup.
-  if (tq.readable < VISION_MIN_READABLE && vq.readable >= VISION_MIN_READABLE) {
-    return { text: v, engine: "vision" };
-  }
-  return { text: tesseractText ?? "", engine: "tesseract" };
-}
-
 /** Storage path for a cached Vision result, keyed by sha256 of the image bytes. */
 export function visionCachePath(imageSha256Hex: string, feature = "document"): string {
   const h = imageSha256Hex.toLowerCase().replace(/[^0-9a-f]/g, "").slice(0, 64);
   return `ocr/vision-${feature}/${h.slice(0, 2)}/${h}.json`;
+}
+
+export type SlideTextPick = {
+  text: string;
+  source: "vision" | "text-layer";
+  reason:
+    | "no-vision"
+    | "vision-unreadable"
+    | "vision-sparse-vs-text-layer"
+    | "vision-primary";
+};
+
+/**
+ * Choose the text for one rendered page (Vision-primary).
+ *
+ * Vision wins by default. The text layer is kept only when Vision is empty,
+ * unreadable, or clearly missed most of a rich born-digital page.
+ */
+export function pickSlideText(textLayer: string, visionText: string | null | undefined): SlideTextPick {
+  const tl = (textLayer ?? "").trim();
+  const v = (visionText ?? "").trim();
+  if (!v) return { text: tl, source: "text-layer", reason: "no-vision" };
+  const vq = ocrQuality(v);
+  if (vq.readable < 0.45) return { text: tl || v, source: tl ? "text-layer" : "vision", reason: "vision-unreadable" };
+  const tq = ocrQuality(tl);
+  if (isGoodEnough(tl) && tq.readable >= 0.8 && vq.realWords < tq.realWords * 0.5) {
+    return { text: tl, source: "text-layer", reason: "vision-sparse-vs-text-layer" };
+  }
+  return { text: v, source: "vision", reason: "vision-primary" };
 }

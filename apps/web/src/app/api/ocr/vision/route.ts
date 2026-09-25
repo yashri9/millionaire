@@ -11,8 +11,8 @@ const MAX_BASE64_CHARS = 5_600_000;
 /**
  * POST /api/ocr/vision — Cloud Vision DOCUMENT_TEXT_DETECTION for ONE page image.
  *
- * Only the browser parser calls this, and only after the pdf.js text layer AND
- * Tesseract both came up short on that page (see shouldEscalateToVision).
+ * Called by the device-draft parser (`vision-ocr-client`) when the pdf.js text
+ * layer needs OCR. Cloud uploads use server-side Vision in the parse job instead.
  *
  * Body:     { imageBase64: string }  // JPEG/PNG bytes, no "data:" prefix
  * Response: { text, confidence, source: "storage-cache" | "provider" }

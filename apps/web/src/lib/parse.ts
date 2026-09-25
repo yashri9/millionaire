@@ -34,7 +34,7 @@ export type ParseResult = {
   warnings: string[];
 };
 
-function linesToSlide(order_index: number, lines: string[]): ParsedSlide {
+export function linesToSlide(order_index: number, lines: string[]): ParsedSlide {
   const clean = lines.map((l) => l.trim()).filter(Boolean);
   return {
     order_index,

@@ -50,7 +50,8 @@ export function trackPipelineEvent(
     | "llm_fallback_used"
     | "tts_cache_miss"
     | "tts_cache_hit"
-    | "escalation_delivered",
+    | "escalation_delivered"
+    | "parse_ocr",
   extra?: Extra,
 ) {
   captureMessage(`pipeline:${name}`, { event: name, ...extra });

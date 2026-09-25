@@ -27,10 +27,43 @@ export type RenderedPage = {
   order_index: number;
   imagePng: Buffer;
   thumbPng: Buffer;
+  /** High-quality JPEG of the full page for OCR (lossy WebP q82 blurs small text). */
+  ocrJpeg?: Buffer;
+  /** pdf.js text layer for this page, one visual line per "\n". */
+  textLayer?: string;
 };
 
-const TARGET_WIDTH = 1600;
+export type RenderOptions = {
+  /**
+   * Called as soon as a page's OCR JPEG exists (~20ms after render), before the
+   * slower WebP encodes finish — so Vision starts while later pages render.
+   */
+  onOcrImage?: (orderIndex: number, ocrJpeg: Buffer | undefined) => void;
+};
+
+/** Pages whose WebP encodes may still be running while the next page renders. */
+const MAX_PAGES_IN_FLIGHT = 4;
+
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
+}
+
+/**
+ * Full slide image width. 2560px keeps text crisp on a 2x (Retina) laptop
+ * stage (~1100-1400 CSS px) and on a 1440p full-screen present. 1600px was
+ * visibly soft there. Raise to 3840 for 4K presenting (bigger files, slower).
+ */
+const TARGET_WIDTH = envInt("SLIDE_RENDER_WIDTH", 2560, 1024, 3840);
+/**
+ * WebP quality for the slide image. q82 left halos around small/coloured
+ * text; q92 is near-indistinguishable from lossless PNG at ~half its size.
+ */
+const WEBP_QUALITY = envInt("SLIDE_WEBP_QUALITY", 92, 60, 100);
+/** Thumb = 25% of full (640px at 2560): crisp in the slide rail on 2x screens. */
 const THUMB_SCALE = 0.25;
+/** JPEG quality for the OCR copy. q92 keeps 8-10px footnote text legible for Vision. */
+const OCR_JPEG_QUALITY = 92;
 export const MAX_PAGES = 60;
 
 async function encodePreferWebp(canvas: {
@@ -41,12 +74,12 @@ async function encodePreferWebp(canvas: {
   encode?: (...args: any[]) => Promise<Buffer>;
 }): Promise<Buffer> {
   try {
-    if (canvas.encode) return await canvas.encode("webp", 82);
+    if (canvas.encode) return await canvas.encode("webp", WEBP_QUALITY);
   } catch {
     /* fall through */
   }
   try {
-    return canvas.toBuffer("image/webp", 82);
+    return canvas.toBuffer("image/webp", WEBP_QUALITY);
   } catch {
     return canvas.toBuffer("image/png");
   }
@@ -114,8 +147,51 @@ export async function convertToPdf(bytes: ArrayBuffer, _filename: string): Promi
   }
 }
 
-/** Renders every page of a PDF to a full image + thumbnail PNG. */
-export async function renderPdfPages(pdfBytes: ArrayBuffer): Promise<RenderedPage[]> {
+async function encodeJpeg(canvas: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  toBuffer: (...args: any[]) => Buffer;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  encode?: (...args: any[]) => Promise<Buffer>;
+}): Promise<Buffer | undefined> {
+  try {
+    if (canvas.encode) return await canvas.encode("jpeg", OCR_JPEG_QUALITY);
+    return canvas.toBuffer("image/jpeg", OCR_JPEG_QUALITY);
+  } catch {
+    return undefined;
+  }
+}
+
+type TextItem = { str?: string; transform?: number[]; hasEOL?: boolean };
+
+/** Join pdf.js text items into visual lines (new line on a baseline change or EOL). */
+function textContentToLines(items: TextItem[]): string {
+  let out = "";
+  let lastY: number | undefined;
+  for (const item of items) {
+    if (typeof item.str !== "string") continue; // marked-content markers
+    const y = item.transform?.[5];
+    if (lastY !== undefined && y !== undefined && Math.abs(y - lastY) > 1) out += "\n";
+    out += item.str;
+    if (item.hasEOL) out += "\n";
+    if (y !== undefined) lastY = y;
+  }
+  return out
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * Renders every page of a PDF once, and from that single render produces the
+ * full image, the thumbnail (downscaled copy, not a second render), the OCR
+ * JPEG and the text layer. One pdf.js document serves both images and text,
+ * so the PDF is no longer parsed twice.
+ */
+export async function renderPdfPages(
+  pdfBytes: ArrayBuffer,
+  opts: RenderOptions = {},
+): Promise<RenderedPage[]> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const pdfjsDir = join(process.cwd(), "node_modules", "pdfjs-dist");
 
@@ -134,32 +210,51 @@ export async function renderPdfPages(pdfBytes: ArrayBuffer): Promise<RenderedPag
   }
 
   const pages: RenderedPage[] = [];
+  const inFlight: Promise<RenderedPage>[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
     const scale = TARGET_WIDTH / Math.max(1, base.width);
     const fullViewport = page.getViewport({ scale });
-    const fullCanvas = createCanvas(fullViewport.width, fullViewport.height);
-    await page.render({
-      canvas: null,
-      canvasContext: fullCanvas.getContext("2d") as unknown as CanvasRenderingContext2D,
-      viewport: fullViewport,
-    }).promise;
+    const fullCanvas = createCanvas(Math.ceil(fullViewport.width), Math.ceil(fullViewport.height));
+    const fullCtx = fullCanvas.getContext("2d");
+    // White backdrop: transparent PDFs otherwise encode as black in JPEG.
+    fullCtx.fillStyle = "#ffffff";
+    fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
 
-    const thumbViewport = page.getViewport({ scale: scale * THUMB_SCALE });
-    const thumbCanvas = createCanvas(thumbViewport.width, thumbViewport.height);
-    await page.render({
-      canvas: null,
-      canvasContext: thumbCanvas.getContext("2d") as unknown as CanvasRenderingContext2D,
-      viewport: thumbViewport,
-    }).promise;
+    const [, textContent] = await Promise.all([
+      page.render({
+        canvas: null,
+        canvasContext: fullCtx as unknown as CanvasRenderingContext2D,
+        viewport: fullViewport,
+      }).promise,
+      page.getTextContent().catch(() => ({ items: [] as TextItem[] })),
+    ]);
 
-    pages.push({
-      order_index: i,
-      imagePng: await encodePreferWebp(fullCanvas),
-      thumbPng: await encodePreferWebp(thumbCanvas),
+    const thumbCanvas = createCanvas(
+      Math.max(1, Math.round(fullCanvas.width * THUMB_SCALE)),
+      Math.max(1, Math.round(fullCanvas.height * THUMB_SCALE)),
+    );
+    const thumbCtx = thumbCanvas.getContext("2d");
+    thumbCtx.imageSmoothingEnabled = true;
+    thumbCtx.imageSmoothingQuality = "high";
+    thumbCtx.drawImage(fullCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+    // Encodes run on the libuv threadpool (WebP ≈ 90ms/page at 1600px), so we
+    // don't await them here: the next page renders while this one encodes.
+    const textLayer = textContentToLines(textContent.items as TextItem[]);
+    page.cleanup();
+    const ocrJpegP = encodeJpeg(fullCanvas).then((jpeg) => {
+      opts.onOcrImage?.(i, jpeg);
+      return jpeg;
     });
+    const pageP = Promise.all([encodePreferWebp(fullCanvas), encodePreferWebp(thumbCanvas), ocrJpegP]).then(
+      ([imagePng, thumbPng, ocrJpeg]): RenderedPage => ({ order_index: i, imagePng, thumbPng, ocrJpeg, textLayer }),
+    );
+    inFlight.push(pageP);
+    if (inFlight.length >= MAX_PAGES_IN_FLIGHT) pages.push(await inFlight.shift()!);
   }
+  for (const p of inFlight) pages.push(await p);
   await doc.cleanup();
   return pages;
 }

@@ -1,10 +1,9 @@
 "use client";
 
 /**
- * Browser side of the Cloud Vision fallback. Renders the page sharper than the
- * 600px thumbnail (Vision reads small slide text much better at ~1600px), sends
- * it to /api/ocr/vision, and returns text or null. Never throws: a failed
- * fallback just means we keep the Tesseract result.
+ * Browser side of Cloud Vision OCR for device drafts. Renders the page sharper
+ * than the 600px thumbnail (~1600px), POSTs to /api/ocr/vision, returns text or
+ * null. Never throws — a failed call leaves the text layer as-is for pickSlideText.
  */
 
 import type { PDFPageProxy } from "pdfjs-dist/types/src/display/api";

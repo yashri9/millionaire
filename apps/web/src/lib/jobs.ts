@@ -196,7 +196,21 @@ async function runParseJob(job: Job) {
     trackPipelineEvent("render_warning", { deckId: job.deck_id, render_warning });
   }
 
-  await enqueueJob("generate_script", job.deck_id, {}, "generate_script");
+  if (processed.ocr || processed.timings) {
+    const { trackPipelineEvent } = await import("@/lib/observe");
+    trackPipelineEvent("parse_ocr", {
+      deckId: job.deck_id,
+      ...processed.timings,
+      ...(processed.ocr ?? {}),
+    });
+  }
+
+  // Tell the script job which slides were read by Vision, so it can use the
+  // OCR-aware narration paths (chart detection) for those slides.
+  const visionSlides = [...(processed.textSources ?? new Map())]
+    .filter(([, src]) => src === "vision")
+    .map(([orderIndex]) => orderIndex);
+  await enqueueJob("generate_script", job.deck_id, { visionSlides }, "generate_script");
 }
 
 async function runGenerateScriptJob(job: Job) {
@@ -212,19 +226,27 @@ async function runGenerateScriptJob(job: Job) {
   if (!deck || !slides?.length) throw new Error("Deck has no slides for scripting");
 
   const { generateNarrationForDeck } = await import("@/lib/prompts");
-  const slidePayload = slides.map((s) => ({
-    slideNo: s.order_index,
-    totalSlides: slides.length,
-    fingerprint: String(s.id).slice(0, 80),
-    titleText: s.title,
-    bodyText: Array.isArray(s.bullets) ? (s.bullets as string[]) : [],
-    possibleChartRegions: [] as string[][],
-    labeledFacts: [] as { series: string; label: string; value: string }[],
-    imageCaptions: [] as string[],
-    footnotes: [] as string[],
-    extractionMethod: "text-layer" as const,
-    ocrDetectedChart: false,
-  }));
+  const { detectChartFromOcr } = await import("@voxdeck/narration");
+  const visionSlides = new Set(
+    Array.isArray(job.payload?.visionSlides) ? (job.payload.visionSlides as number[]) : [],
+  );
+  const slidePayload = slides.map((s) => {
+    const bodyText = Array.isArray(s.bullets) ? (s.bullets as string[]) : [];
+    const fromVision = visionSlides.has(s.order_index);
+    return {
+      slideNo: s.order_index,
+      totalSlides: slides.length,
+      fingerprint: String(s.id).slice(0, 80),
+      titleText: s.title,
+      bodyText,
+      possibleChartRegions: [] as string[][],
+      labeledFacts: [] as { series: string; label: string; value: string }[],
+      imageCaptions: [] as string[],
+      footnotes: [] as string[],
+      extractionMethod: (fromVision ? "ocr" : "text-layer") as "ocr" | "text-layer",
+      ocrDetectedChart: fromVision && detectChartFromOcr([s.title, ...bodyText].join(" ")),
+    };
+  });
 
   const results = await generateNarrationForDeck(slidePayload, {
     companyName: deck.title,

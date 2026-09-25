@@ -36,7 +36,7 @@ class VisionHttpError extends Error {
 /** Map Google errors to the codes the client already understands. */
 export function mapVisionError(status: number, body: string): ApiError {
   if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(body)) {
-    return new ApiError(402, "Cloud Vision quota reached. Tesseract text is kept.", "quota_exceeded");
+    return new ApiError(402, "Cloud Vision quota reached. Text layer is kept when Vision is unavailable.", "quota_exceeded");
   }
   if (status === 403 && /billing/i.test(body)) {
     return new ApiError(503, "Billing is not enabled on the Google Cloud project.", "vision_billing_disabled");
