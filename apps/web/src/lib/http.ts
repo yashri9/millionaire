@@ -36,8 +36,18 @@ export async function handle(
     }
     const requestId = crypto.randomUUID();
     console.error(`[500] request_id=${requestId}`, err);
+    const raw = err instanceof Error ? err.message : String(err);
+    // Surface known config failures without leaking stacks/keys.
+    let message = "Something went wrong. Please try again.";
+    if (/Invalid API key/i.test(raw)) {
+      message =
+        "Server storage is misconfigured (invalid Supabase service role key). Fix SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.";
+    } else if (/SUPABASE_SERVICE_ROLE_KEY is not configured/i.test(raw)) {
+      message =
+        "Server storage is not configured. Set SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.";
+    }
     return NextResponse.json(
-      { error: "Something went wrong. Please try again.", request_id: requestId },
+      { error: message, request_id: requestId },
       { status: 500 },
     );
   }
