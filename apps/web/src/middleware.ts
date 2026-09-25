@@ -14,17 +14,17 @@ function securityHeaders(response: NextResponse) {
     "camera=(), microphone=(), geolocation=()",
   );
   // Tight enough for studio + recipient; allow self, supabase storage, and data/blob for audio.
-  // Allow pdf.js to fetch cmaps/fonts from jsDelivr when local assets are missing.
+  // Google Fonts (Cormorant / JetBrains Mono) must load on the marketing homepage.
   response.headers.set(
     "Content-Security-Policy",
     [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://*.supabase.co https://*.storage.supabase.co",
       "media-src 'self' data: blob: https://*.supabase.co https://*.storage.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://*.storage.supabase.co wss://*.supabase.co https://api.elevenlabs.io https://api.groq.com https://api.x.ai https://api.anthropic.com https://cdn.jsdelivr.net https://*.googleapis.com",
-      "font-src 'self' data: https://cdn.jsdelivr.net",
+      "connect-src 'self' https://*.supabase.co https://*.storage.supabase.co wss://*.supabase.co https://api.elevenlabs.io https://api.groq.com https://api.x.ai https://api.anthropic.com https://cdn.jsdelivr.net https://*.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com",
+      "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",

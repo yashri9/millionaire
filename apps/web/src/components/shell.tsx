@@ -13,7 +13,28 @@ const MARKETING_LINKS = [
   { href: "#voices", label: "Voices" },
 ];
 
-export function Wordmark({ className = "" }: { className?: string }) {
+export function Wordmark({
+  className = "",
+  marketing = false,
+}: {
+  className?: string;
+  /** Blue homepage language (no lime / Space Grotesk). */
+  marketing?: boolean;
+}) {
+  if (marketing) {
+    return (
+      <Link href="/" className={`inline-flex items-center gap-2 ${className}`}>
+        <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#07111f]">
+          <span className="waveform text-[#77a8ff]" aria-hidden>
+            <span /><span /><span /><span /><span /><span /><span />
+          </span>
+        </span>
+        <span className="text-lg font-semibold tracking-tight text-[#07111f]" style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}>
+          VOXDECK<span className="text-[#176bff]">.</span>
+        </span>
+      </Link>
+    );
+  }
   return (
     <Link href="/" className={`inline-flex items-center gap-2 ${className}`}>
       <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-md bg-foreground text-background">
@@ -46,7 +67,11 @@ export function TopBar({
   return (
     <header
       id="navbar"
-      className="sticky top-0 z-40 shrink-0 border-b border-border bg-background/85 backdrop-blur"
+      className={`sticky top-0 z-40 shrink-0 border-b backdrop-blur ${
+        variant === "marketing"
+          ? "border-[#07111f28] bg-[#eaf3ff]/90"
+          : "border-border bg-background/85"
+      }`}
     >
       <div
         className={`mx-auto flex min-h-16 w-full items-center justify-between gap-4 lg:min-h-[4.5rem] ${
@@ -54,7 +79,7 @@ export function TopBar({
         }`}
       >
         <div className="flex min-w-0 items-center gap-8 lg:gap-12">
-          <Wordmark />
+          <Wordmark marketing={variant === "marketing"} />
           {variant === "app" && (
             <nav className="hidden items-center gap-1 md:flex">
               {[
@@ -97,7 +122,7 @@ export function TopBar({
               </Link>
               <Link
                 href="/decks/new"
-                className="group relative hidden h-10 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md lg:inline-flex"
+                className="group relative hidden h-10 items-center gap-2 rounded-full bg-[#07111f] px-5 text-sm font-semibold text-[#f4f8ff] transition-colors hover:bg-[#176bff] lg:inline-flex"
               >
                 Get started
               </Link>
@@ -159,7 +184,7 @@ export function TopBar({
               </Link>
               <Link
                 href="/decks/new"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-[#07111f] text-sm font-semibold text-[#f4f8ff] transition-colors hover:bg-[#176bff]"
                 onClick={() => setMenuOpen(false)}
               >
                 Get started
@@ -208,7 +233,9 @@ export function AppShell({
       className={
         fillViewport
           ? "flex h-dvh flex-col overflow-hidden bg-background text-foreground"
-          : "min-h-screen bg-background text-foreground"
+          : variant === "marketing"
+            ? "min-h-screen bg-[#eaf3ff] text-[#07111f]"
+            : "min-h-screen bg-background text-foreground"
       }
     >
       {showTopBar && <TopBar variant={variant} bleed={fillViewport} />}

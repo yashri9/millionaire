@@ -122,29 +122,28 @@ export function StudioRehearseSection() {
     <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-y-12 md:grid-cols-2 md:gap-x-12 lg:gap-x-20">
       {/* Left: story + CTA + sample deck picker */}
       <div>
-        <p className="mb-3 font-semibold md:mb-4">The studio</p>
-        <h2 className="mb-5 font-display text-4xl font-bold tracking-tighter md:mb-6 md:text-5xl lg:text-6xl">
-          Rehearse it before you send it.
+        <p className="mkt-kicker">03　THE STUDIO.</p>
+        <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
+          <em>Rehearse it</em> before you send it.
         </h2>
-        <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
+        <p className="mkt-body max-w-md text-lg leading-relaxed">
           Preview your walkthrough exactly as your prospect will see it. Tweak the
           voice, pacing, and emphasis — then ship.
         </p>
-        <p className="mt-3 max-w-md text-sm text-muted-foreground">
+        <p className="mkt-body mt-3 max-w-md text-sm">
           Try it right now on a sample deck. No account needed.
         </p>
-        <Link
-          href="/decks/new"
-          className="mt-8 inline-flex h-11 items-center gap-2 rounded-full border-2 border-foreground bg-background px-5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
-        >
+        <Link href="/decks/new" className="light-button big mt-8">
           Make my own deck →
         </Link>
 
         {/* Sample decks — sits under the studio CTA */}
-        <div className="mt-10 max-w-md rounded-2xl border border-border bg-background p-4">
+        <div className="mt-10 max-w-md rounded-2xl border border-[#07111f28] bg-[#eaf3ff] p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <span className="eyebrow">Try a walkthrough</span>
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#68768a]">
+              Try a walkthrough
+            </span>
+            <span className="font-mono text-[10px] text-[#68768a]">
               {MARKETING_DEMO_DECKS.length} demos
             </span>
           </div>
@@ -162,16 +161,16 @@ export function StudioRehearseSection() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => selectDeck(d.id)}
-                  className={`min-w-[9.5rem] flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  className={`min-w-[9.5rem] flex-1 rounded-full border px-3 py-2.5 text-left transition-colors ${
                     active
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border bg-background hover:border-foreground/40"
+                      ? "border-[#07111f] bg-[#07111f] text-[#f4f8ff]"
+                      : "border-[#07111f28] bg-transparent text-[#07111f] hover:border-[#176bff] hover:text-[#176bff]"
                   }`}
                 >
                   <div className="text-xs font-semibold tracking-tight">{d.name}</div>
                   <div
                     className={`mt-0.5 text-[10px] leading-snug ${
-                      active ? "text-background/65" : "text-muted-foreground"
+                      active ? "text-[#f4f8ff]/65" : "text-[#526176]"
                     }`}
                   >
                     {d.blurb}
@@ -184,25 +183,27 @@ export function StudioRehearseSection() {
       </div>
 
       {/* Right: rehearse player */}
-      <div className="overflow-hidden rounded-2xl border-2 border-foreground bg-background offset-shadow-sm">
-        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <div className="overflow-hidden rounded-2xl border border-[#07111f28] bg-[#eaf3ff]">
+        <div className="flex items-center justify-between border-b border-[#07111f28] px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="eyebrow">Rehearse</span>
-            <span className="rounded-full bg-accent/80 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-foreground">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#68768a]">
+              Rehearse
+            </span>
+            <span className="rounded-full bg-[#176bff] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-white">
               {deck.name}
             </span>
           </div>
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-[10px] text-[#68768a]">
             {slide.n} / {String(slides.length).padStart(2, "0")}
           </span>
         </div>
 
-        <div className="relative aspect-[16/9] bg-chalk">
+        <div className="relative aspect-[16/9] bg-[#dce9fb]">
           <DemoSlideVisual deck={deck} slide={slide} />
 
-          <div className="pointer-events-none absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full border border-foreground bg-background/95 px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur">
+          <div className="pointer-events-none absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full border border-[#07111f28] bg-[#eaf3ff]/95 px-3 py-1.5 text-xs font-semibold text-[#07111f] shadow-sm backdrop-blur">
             <span
-              className={`waveform text-foreground ${playing ? "" : "opacity-40"}`}
+              className={`waveform text-[#77a8ff] ${playing ? "" : "opacity-40"}`}
               aria-hidden
             >
               <span />
@@ -215,20 +216,20 @@ export function StudioRehearseSection() {
           </div>
         </div>
 
-        <div className="space-y-3 border-t border-border bg-background px-4 py-3">
+        <div className="space-y-3 border-t border-[#07111f28] bg-[#eaf3ff] px-4 py-3">
           <p
             key={`${deckId}-${slide.script}`}
-            className="animate-rise text-sm leading-relaxed text-foreground"
+            className="animate-rise text-sm leading-relaxed text-[#07111f]"
           >
-            <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-[#68768a]">
               Voiceover
             </span>
             {slide.script}
           </p>
 
-          <div className="h-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-1 overflow-hidden rounded-full bg-[#07111f14]">
             <div
-              className="h-full rounded-full bg-accent"
+              className="h-full rounded-full bg-[#176bff]"
               style={{ width: `${(playing ? progress : 0) * 100}%` }}
             />
           </div>
@@ -238,14 +239,14 @@ export function StudioRehearseSection() {
               type="button"
               onClick={() => go(-1)}
               disabled={idx === 0}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-30"
+              className="rounded-full border border-[#07111f28] px-3 py-1.5 text-xs font-semibold text-[#07111f] hover:border-[#176bff] hover:text-[#176bff] disabled:opacity-30"
             >
               ◀ Prev
             </button>
             <button
               type="button"
               onClick={togglePlay}
-              className="rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background"
+              className="rounded-full bg-[#07111f] px-4 py-1.5 text-xs font-semibold text-[#f4f8ff] transition-colors hover:bg-[#176bff]"
             >
               {playing ? "❚❚ Pause" : "▶ Play walkthrough"}
             </button>
@@ -253,12 +254,12 @@ export function StudioRehearseSection() {
               type="button"
               onClick={() => go(1)}
               disabled={idx >= slides.length - 1}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-30"
+              className="rounded-full border border-[#07111f28] px-3 py-1.5 text-xs font-semibold text-[#07111f] hover:border-[#176bff] hover:text-[#176bff] disabled:opacity-30"
             >
               Next ▶
             </button>
             <div className="flex-1" />
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-mono text-[10px] text-[#68768a]">
               {slide.title}
             </span>
           </div>
@@ -300,7 +301,7 @@ function StyledDemoSlide({ slide }: { slide: DemoSlide }) {
     <div
       key={slide.n}
       className={`animate-rise absolute inset-0 overflow-hidden transition-colors duration-500 ${
-        isDark ? "bg-[#0a0a0a] text-white" : "bg-chalk text-foreground"
+        isDark ? "bg-[#0a0a0a] text-white" : "bg-[#dce9fb] text-[#07111f]"
       }`}
     >
       {isDark && (
@@ -310,22 +311,21 @@ function StyledDemoSlide({ slide }: { slide: DemoSlide }) {
           <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent" />
         </div>
       )}
-      {!isDark && (
-        <div className="grid-paper absolute inset-0 opacity-40" aria-hidden />
-      )}
 
       <div className="absolute inset-0 flex flex-col justify-between p-6 sm:p-8">
         <div>
-          <div className={`eyebrow mb-2 ${isDark ? "!text-white/55" : ""}`}>
+          <div
+            className={`mb-2 font-mono text-[10px] uppercase tracking-[0.2em] ${
+              isDark ? "text-white/55" : "text-[#68768a]"
+            }`}
+          >
             {slide.label}
           </div>
-          <div className="font-display text-3xl font-bold tracking-tighter sm:text-4xl">
-            {slide.title}
-          </div>
+          <div className="mkt-h2 text-3xl sm:text-4xl">{slide.title}</div>
           {slide.subtitle && (
             <p
               className={`mt-2 max-w-xs text-sm ${
-                isDark ? "text-white/70" : "text-muted-foreground"
+                isDark ? "text-white/70" : "text-[#526176]"
               }`}
             >
               {slide.subtitle}

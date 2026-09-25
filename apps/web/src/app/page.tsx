@@ -59,9 +59,8 @@ const PROOF = [
 ];
 
 /**
- * Your Relume homepage + selected Oasis sections only
- * (hero, iPad demo, use cases, audience, quote, closing).
- * Not a full Oasis page swap.
+ * Homepage — one blue design language end to end
+ * (hero / oasis sections + restyled middle Relume sections).
  */
 export default function Home() {
   return (
@@ -107,32 +106,32 @@ export default function Home() {
         <OasisIpadDemo />
       </div>
 
-      {/* Logo 2 — proof strip (yours) */}
-      <section className="overflow-hidden border-y border-border px-[5%] py-12 md:py-16">
+      {/* Proof strip */}
+      <section className="mkt-section overflow-hidden border-y border-[#07111f28] px-[5%] py-12 md:py-16">
         <div className="mx-auto w-full max-w-7xl">
-          <p className="mb-8 text-center font-semibold">
+          <p className="mb-8 text-center font-semibold text-[#07111f]">
             Built for decks that have to travel without you
           </p>
           <div className="grid grid-cols-1 items-center justify-items-center gap-8 sm:grid-cols-3">
             {PROOF.map((item) => (
               <div key={item.label} className="text-center">
-                <p className="text-sm text-muted-foreground">{item.label}</p>
-                <p className="mt-1 font-display text-lg font-bold tracking-tight">{item.value}</p>
+                <p className="text-sm text-[#526176]">{item.label}</p>
+                <p className="mt-1 text-lg font-semibold tracking-tight text-[#07111f]">{item.value}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Layout 3 — deck graveyard (yours) */}
-      <section className="px-[5%] py-16 md:py-24 lg:py-28">
+      {/* 01 — The deck graveyard */}
+      <section className="mkt-section px-[5%] py-16 md:py-24 lg:py-28">
         <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-y-12 md:grid-cols-2 md:gap-x-12 lg:gap-x-20">
           <div>
-            <p className="mb-3 font-semibold md:mb-4">The deck graveyard</p>
-            <h2 className="mb-5 font-display text-4xl font-bold tracking-tighter md:mb-6 md:text-5xl lg:text-6xl">
-              You sent the deck. Then… silence.
+            <p className="mkt-kicker">01　THE PROBLEM.</p>
+            <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
+              You sent the deck. <em>Then… silence.</em>
             </h2>
-            <p className="md:text-lg text-lg leading-relaxed text-muted-foreground">
+            <p className="mkt-body text-lg leading-relaxed md:text-lg">
               A static PDF leaves your story sitting in an inbox. Your recipient has to decide what
               matters, what to read, and whether to come back with questions.
             </p>
@@ -142,32 +141,32 @@ export default function Home() {
               {QUESTIONS.map((q, i) => (
                 <li
                   key={q}
-                  className="flex gap-4 border-t border-border py-4 text-lg tracking-tight last:border-b"
+                  className="flex gap-4 border-t border-[#07111f28] py-4 text-lg tracking-tight text-[#07111f] last:border-b"
                 >
-                  <span className="font-semibold text-muted-foreground">
+                  <span className="font-mono text-[#68768a]">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   {q}
                 </li>
               ))}
             </ul>
-            <p className="mt-8 font-display text-2xl font-semibold leading-snug tracking-tight md:text-3xl">
+            <p className="mkt-h2 mt-8 text-2xl leading-snug md:text-3xl">
               Your best pitch shouldn&apos;t depend on{" "}
-              <mark className="bg-accent px-1.5 text-foreground">you being in the room.</mark>
+              <em>you being in the room.</em>
             </p>
           </div>
         </div>
       </section>
 
-      {/* How it works (yours) */}
-      <section id="how" className="bg-chalk/60 px-[5%] py-16 md:py-24 lg:py-28">
+      {/* 02 — How it works */}
+      <section id="how" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-12 max-w-lg md:mb-18">
-            <p className="mb-3 font-semibold md:mb-4">How it works</p>
-            <h2 className="mb-5 font-display text-4xl font-bold tracking-tighter md:mb-6 md:text-5xl lg:text-6xl">
-              From deck to self-serve pitch in minutes.
+            <p className="mkt-kicker">02　HOW IT WORKS.</p>
+            <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
+              From deck to <em>self-serve pitch</em> in minutes.
             </h2>
-            <p className="md:text-lg text-muted-foreground">
+            <p className="mkt-body md:text-lg">
               Three steps from your existing deck to a walkthrough your prospect can watch on their
               own time.
             </p>
@@ -175,32 +174,31 @@ export default function Home() {
           <div className="grid grid-cols-1 items-start gap-y-12 md:grid-cols-3 md:gap-x-8 md:gap-y-16 lg:gap-x-12">
             {STEPS.map((step) => (
               <div key={step.n}>
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-md border border-border bg-background font-display text-lg font-bold md:mb-6">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#07111f28] font-mono text-sm text-[#07111f] md:mb-6">
                   {step.n}
                 </div>
-                <h3 className="mb-3 text-xl font-bold md:mb-4 md:text-2xl">{step.title}</h3>
-                <p className="text-muted-foreground">{step.body}</p>
+                <h3 className="mb-3 text-xl font-normal text-[#07111f] md:mb-4 md:text-2xl">{step.title}</h3>
+                <p className="mkt-body">{step.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Studio (yours) */}
-      {/* Studio — live sample walkthrough (actual product preview) */}
-      <section id="studio" className="px-[5%] py-16 md:py-24 lg:py-28">
+      {/* 03 — Studio */}
+      <section id="studio" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <StudioRehearseSection />
       </section>
 
-      {/* What prospect sees (yours) */}
-      <section className="px-[5%] py-16 md:py-24 lg:py-28">
+      {/* 04 — What prospect sees */}
+      <section className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-12 max-w-lg md:mb-18">
-            <p className="mb-3 font-semibold md:mb-4">What your prospect sees</p>
-            <h2 className="mb-5 font-display text-4xl font-bold tracking-tighter md:mb-6 md:text-5xl lg:text-6xl">
-              One click. No login. No friction.
+            <p className="mkt-kicker">04　WHAT YOUR PROSPECT SEES.</p>
+            <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
+              One click. <em>No login.</em> No friction.
             </h2>
-            <p className="md:text-lg text-muted-foreground">
+            <p className="mkt-body md:text-lg">
               Your recipient gets the story without another meeting. They watch when it suits them
               and keep the context intact.
             </p>
@@ -209,16 +207,16 @@ export default function Home() {
             {FLOW.map((item, i) => (
               <div key={item.n} className="relative flex flex-1 gap-6 md:flex-col md:gap-0">
                 <div className="flex flex-col items-center md:flex-row md:items-center">
-                  <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-foreground bg-background text-sm font-bold">
+                  <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#07111f28] bg-[#eaf3ff] font-mono text-sm text-[#07111f]">
                     {item.n}
                   </div>
                   {i < FLOW.length - 1 && (
-                    <div className="h-full w-px grow bg-border md:h-px md:w-full" aria-hidden />
+                    <div className="h-full w-px grow bg-[#07111f28] md:h-px md:w-full" aria-hidden />
                   )}
                 </div>
                 <div className="pb-10 md:mt-6 md:pr-6 md:pb-0">
-                  <h3 className="mb-2 text-xl font-bold">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.body}</p>
+                  <h3 className="mb-2 text-xl font-normal text-[#07111f]">{item.title}</h3>
+                  <p className="mkt-body text-sm">{item.body}</p>
                 </div>
               </div>
             ))}
@@ -226,15 +224,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Voices (yours) */}
-      <section id="voices" className="px-[5%] py-16 md:py-24 lg:py-28">
+      {/* 05 — Voices */}
+      <section id="voices" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-12 max-w-lg md:mb-18">
-            <p className="mb-3 font-semibold md:mb-4">Pick a voice</p>
-            <h2 className="mb-5 font-display text-4xl font-bold tracking-tighter md:mb-6 md:text-5xl lg:text-6xl">
-              Sound like you — or better.
+            <p className="mkt-kicker">05　PICK A VOICE.</p>
+            <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
+              Sound like you — <em>or better.</em>
             </h2>
-            <p className="md:text-lg text-muted-foreground">
+            <p className="mkt-body md:text-lg">
               Choose the voice that fits the way you want your company to sound. Click to preview.
             </p>
           </div>
@@ -242,12 +240,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* —— Oasis: use cases, audience, quote (same content width as Voices) —— */}
-      <div className="bg-[#eaf3ff] px-[5%]">
+      {/* —— Oasis: use cases, audience, quote —— */}
+      <div className="border-t border-[#07111f28] bg-[#eaf3ff] px-[5%]">
         <div className="oasis-borrow mx-auto w-full max-w-7xl">
           <section className="uses-section" id="use">
             <div className="uses-lead">
-              <span>03　USE CASES.</span>
+              <span>06　USE CASES.</span>
               <h2>
                 One deck.
                 <br />
@@ -278,7 +276,7 @@ export default function Home() {
 
           <section className="audience">
             <div>
-              <span>04</span>
+              <span>07</span>
               <b>WHO IT&apos;S FOR.</b>
             </div>
             {AUDIENCE.map((x, i) => (
@@ -296,7 +294,7 @@ export default function Home() {
 
           <section className="quote" id="quote">
             <div className="quote-top">
-              <span>05　WHAT USERS SAY.</span>
+              <span>08　WHAT USERS SAY.</span>
               <b>01 / 03</b>
             </div>
             <div className="quote-mark">“</div>
@@ -317,7 +315,7 @@ export default function Home() {
           <div className="close-orbit o1" />
           <div className="close-orbit o2" />
           <div className="close-orbit o3" />
-          <span>06　START WITH LESS.</span>
+          <span>09　START WITH LESS.</span>
           <h2>
             Give it the deck
             <br />
