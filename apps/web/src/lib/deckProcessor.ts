@@ -101,13 +101,14 @@ export async function processDeckUpload(bytes: ArrayBuffer, filename: string): P
     } catch (err) {
       // Page-count limit is a user-facing message, not a render failure — surface it.
       if (err instanceof Error && /aren't supported yet/.test(err.message)) throw err;
+      const detail = err instanceof Error ? err.message : String(err);
       console.error("[deckProcessor] render failed — falling back to text-only", err);
       const { slides } = await parseDeck(pdfBytes, "converted.pdf");
       return {
         slides,
         images: [],
         rendered: false,
-        warning: "We couldn't generate slide previews for this file. The slide text was still extracted.",
+        warning: `We couldn't generate slide previews for this file (${detail.slice(0, 180)}). The slide text was still extracted.`,
       };
     }
   }

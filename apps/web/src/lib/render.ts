@@ -16,12 +16,19 @@ import "server-only";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { access, mkdtemp, readFile, rm, writeFile } from "fs/promises";
+import { createRequire } from "module";
 import { tmpdir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import { createCanvas } from "@napi-rs/canvas";
 import { serverEnv } from "@/lib/env";
 
 const execFileAsync = promisify(execFile);
+const requireFromHere = createRequire(import.meta.url);
+
+/** Absolute pdfjs-dist package root (works in monorepo + Vercel where cwd ≠ node_modules). */
+function pdfjsPackageRoot(): string {
+  return dirname(requireFromHere.resolve("pdfjs-dist/package.json"));
+}
 
 export type RenderedPage = {
   order_index: number;
@@ -193,7 +200,7 @@ export async function renderPdfPages(
   opts: RenderOptions = {},
 ): Promise<RenderedPage[]> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const pdfjsDir = join(process.cwd(), "node_modules", "pdfjs-dist");
+  const pdfjsDir = pdfjsPackageRoot();
 
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(pdfBytes),
