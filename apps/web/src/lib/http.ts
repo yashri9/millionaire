@@ -45,6 +45,9 @@ export async function handle(
     } else if (/SUPABASE_SERVICE_ROLE_KEY is not configured/i.test(raw)) {
       message =
         "Server storage is not configured. Set SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.";
+    } else if (/permission denied for table/i.test(raw)) {
+      message =
+        "Server database permissions are incomplete. Apply the latest Supabase migrations (service_role grants) and try again.";
     }
     return NextResponse.json(
       { error: message, request_id: requestId },
