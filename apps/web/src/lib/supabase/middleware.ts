@@ -36,15 +36,10 @@ export async function updateSession(request: NextRequest) {
   const isRecipient =
     path.startsWith("/d/") || path.startsWith("/api/d/");
 
-  // Vercel Cron / server kick: Bearer CRON_SECRET, no user session.
-  const cronSecret = process.env.CRON_SECRET || "";
-  const authHeader = request.headers.get("authorization") || "";
-  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  const querySecret = request.nextUrl.searchParams.get("secret") || "";
-  const isCronJob =
-    path === "/api/jobs/run" &&
-    Boolean(cronSecret) &&
-    (bearer === cronSecret || querySecret === cronSecret);
+  // Job worker authenticates itself (CRON_SECRET or signed-in user).
+  // Don't gate it here — Edge often can't read encrypted secrets, which
+  // left uploads stuck at 40% with pending jobs.
+  const isJobsRun = path === "/api/jobs/run";
 
   const isStudioRoute =
     path.startsWith("/dashboard") ||
@@ -95,7 +90,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isCronJob) {
+  if (path.startsWith("/api/") && !isRecipient && !isAuthPage && !isJobsRun) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
