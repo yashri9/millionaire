@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AppShell } from "@/components/shell";
 import { OasisIpadDemo } from "@/components/marketing/OasisIpadDemo";
 import { StudioRehearseSection } from "@/components/marketing/RehearseDemoStage";
+import { TrackOutboundRef } from "@/components/marketing/TrackOutboundRef";
 import "./oasis-borrow.css";
 
 const QUESTIONS = [
@@ -43,16 +45,16 @@ const PROOF = [
   { label: "Workflow", value: "Upload → Voice → One link" },
 ];
 
-const card =
-  "rounded-2xl border border-[#07111f28] bg-[#eaf3ff] p-6 md:p-8";
-
 /**
- * Homepage — one blue design language end to end.
- * Light sections share px-[5%] + max-w-7xl + rounded-2xl cards.
+ * Homepage — one blue design language end to end
+ * (hero / oasis sections + restyled middle Relume sections).
  */
 export default function Home() {
   return (
     <AppShell variant="marketing">
+      <Suspense fallback={null}>
+        <TrackOutboundRef />
+      </Suspense>
       {/* —— Oasis: intro hero —— */}
       <div className="oasis-borrow">
         <section className="intro-hero">
@@ -154,7 +156,7 @@ export default function Home() {
       {/* 03 — What prospect sees */}
       <section className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-12 max-w-3xl md:mb-14">
+          <div className="mb-12 max-w-lg md:mb-18">
             <p className="mkt-kicker">03　WHAT YOUR PROSPECT SEES.</p>
             <h2 className="mkt-h2 mb-5 text-4xl md:mb-6 md:text-5xl lg:text-6xl">
               One click. <em>No login.</em> No friction.
@@ -164,100 +166,95 @@ export default function Home() {
               and keep the context intact.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
-            {FLOW.map((item) => (
-              <div key={item.n} className={card}>
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#68768a]">
-                  {item.n}
-                </span>
-                <h3 className="mt-4 text-xl font-normal text-[#07111f]">{item.title}</h3>
-                <p className="mkt-body mt-2 text-sm leading-relaxed">{item.body}</p>
+          <div className="relative flex flex-col md:flex-row">
+            {FLOW.map((item, i) => (
+              <div key={item.n} className="relative flex flex-1 gap-6 md:flex-col md:gap-0">
+                <div className="flex flex-col items-center md:flex-row md:items-center">
+                  <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#07111f28] bg-[#eaf3ff] font-mono text-sm text-[#07111f]">
+                    {item.n}
+                  </div>
+                  {i < FLOW.length - 1 && (
+                    <div className="h-full w-px grow bg-[#07111f28] md:h-px md:w-full" aria-hidden />
+                  )}
+                </div>
+                <div className="pb-10 md:mt-6 md:pr-6 md:pb-0">
+                  <h3 className="mb-2 text-xl font-normal text-[#07111f]">{item.title}</h3>
+                  <p className="mkt-body text-sm">{item.body}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 04 — Use cases */}
-      <section id="use" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-12 grid grid-cols-1 items-end gap-8 md:mb-14 md:grid-cols-2 md:gap-x-12 lg:gap-x-20">
-            <div>
-              <p className="mkt-kicker">04　USE CASES.</p>
-              <h2 className="mkt-h2 text-4xl md:text-5xl lg:text-6xl">
+      {/* —— Oasis: use cases, audience, quote —— */}
+      <div className="border-t border-[#07111f28] bg-[#eaf3ff] px-[5%]">
+        <div className="oasis-borrow mx-auto w-full max-w-7xl">
+          <section className="uses-section" id="use">
+            <div className="uses-lead">
+              <span>04　USE CASES.</span>
+              <h2>
                 One deck.
                 <br />
-                <em>Every story it needs.</em>
+                <em>
+                  Every story
+                  <br />
+                  it needs.
+                </em>
               </h2>
+              <p>
+                From the first pitch to the follow-up, Voxdeck turns presentations into guided
+                experiences.
+              </p>
             </div>
-            <p className="mkt-body max-w-md md:pb-2 md:text-lg">
-              From the first pitch to the follow-up, Voxdeck turns presentations into guided
-              experiences.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-            {OASIS_USES.map((u, i) => (
-              <article key={u[0]} className={`${card} flex min-h-[160px] flex-col justify-between`}>
-                <span className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-[#68768a]">
-                  {String(i + 1).padStart(2, "0")}
-                  <span aria-hidden>↗</span>
-                </span>
-                <div className="mt-6">
-                  <h3 className="mb-2 text-xl font-normal text-[#07111f]">{u[0]}</h3>
-                  <p className="mkt-body text-sm leading-relaxed">{u[1]}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+            <div className="uses-grid">
+              {OASIS_USES.map((u, i) => (
+                <article key={u[0]}>
+                  <span>
+                    {String(i + 1).padStart(2, "0")} <i>↗</i>
+                  </span>
+                  <h3>{u[0]}</h3>
+                  <p>{u[1]}</p>
+                </article>
+              ))}
+            </div>
+            <b className="giant-word">usecases</b>
+          </section>
 
-      {/* 05 — Who it's for */}
-      <section className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-12 md:mb-14">
-            <p className="mkt-kicker">05　WHO IT&apos;S FOR.</p>
-            <h2 className="mkt-h2 max-w-3xl text-4xl md:text-5xl lg:text-6xl">
-              Built for teams that <em>ship the story.</em>
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+          <section className="audience">
+            <div>
+              <span>05</span>
+              <b>WHO IT&apos;S FOR.</b>
+            </div>
             {AUDIENCE.map((x, i) => (
-              <article
-                key={x[0]}
-                className={`${card} ${i === 0 ? "border-[#176bff] bg-[#176bff]/10" : ""}`}
-              >
-                <header className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-[#68768a]">
-                  <span>✦</span>
-                  <span>0{i + 1}</span>
+              <article key={x[0]} className={i === 0 ? "active" : ""}>
+                <header>
+                  <small>✦</small>
+                  <small>0{i + 1}</small>
                 </header>
-                <h3 className="mt-6 text-2xl font-normal text-[#07111f]">{x[0]}</h3>
-                <p className="mkt-body mt-3 text-sm leading-relaxed">{x[1]}</p>
+                <h3>{x[0]}</h3>
+                <p>{x[1]}</p>
               </article>
             ))}
-          </div>
-        </div>
-      </section>
+            <b className="giant-word">Founders</b>
+          </section>
 
-      {/* 06 — Quote */}
-      <section id="quote" className="mkt-section border-t border-[#07111f28] px-[5%] py-16 md:py-24 lg:py-28">
-        <div className="oasis-borrow mx-auto w-full max-w-7xl">
-          <div className="mb-10 flex items-baseline justify-between gap-4">
-            <p className="mkt-kicker mb-0">06　WHAT USERS SAY.</p>
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#68768a]">
-              01 / 03
-            </span>
-          </div>
-          <div className="quote-mark">“</div>
-          <blockquote className="mkt-h2 mt-6 max-w-4xl text-4xl leading-tight md:text-5xl lg:text-6xl">
-            I sent one link. They understood the whole deck before our next call.
-          </blockquote>
-          <p className="mkt-body mt-10 text-sm md:text-base">
-            <span className="font-semibold text-[#07111f]">Priya</span>, Founder — early Voxdeck
-            user
-          </p>
+          <section className="quote" id="quote">
+            <div className="quote-top">
+              <span>06　WHAT USERS SAY.</span>
+              <b>01 / 03</b>
+            </div>
+            <div className="quote-mark">“</div>
+            <blockquote>
+              “I sent one link. They understood the whole deck before our next call.”
+            </blockquote>
+            <p>
+              <b>Priya</b>, Founder — early Voxdeck user
+            </p>
+            <b className="giant-word">Voxdeck</b>
+          </section>
         </div>
-      </section>
+      </div>
 
       {/* —— Oasis: closing CTA —— */}
       <div className="oasis-borrow">
