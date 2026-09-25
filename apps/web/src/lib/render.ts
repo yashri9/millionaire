@@ -185,18 +185,6 @@ export async function convertToPdf(bytes: ArrayBuffer, _filename: string): Promi
   }
 }
 
-async function encodeJpeg(canvas: Canvas): Promise<Buffer | undefined> {
-  try {
-    return await canvas.encode("jpeg", OCR_JPEG_QUALITY);
-  } catch {
-    try {
-      return canvas.toBuffer("image/jpeg", OCR_JPEG_QUALITY);
-    } catch {
-      return undefined;
-    }
-  }
-}
-
 type TextItem = { str?: string; transform?: number[]; hasEOL?: boolean };
 
 /** Join pdf.js text items into visual lines (new line on a baseline change or EOL). */
