@@ -1,130 +1,137 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-
-type Analytics = {
-  totalOpens: number;
-  completedCount: number;
-  completionRate: number;
-  perSlide: { order_index: number; title: string; views: number }[];
-  questions: {
-    text: string;
-    answer_text: string | null;
-    escalated: boolean;
-    confidence: number | null;
-    slide_ref: number | null;
-    created_at: string;
-  }[];
-};
+import Link from "next/link";
+import { use, useCallback, useEffect, useState } from "react";
+import { AppShell } from "@/components/shell";
+import { Button } from "@/components/ui-kit";
+import { StatCard } from "@/components/analytics/StatCard";
+import { SlideEngagement } from "@/components/analytics/SlideEngagement";
+import { QuestionLog } from "@/components/analytics/QuestionLog";
+import type { DeckAnalytics } from "@/components/analytics/analytics-types";
 
 const POLL_MS = 15_000;
 
 /**
- * PRD §4.10 Deck analytics. Opens, completion rate, per-slide drop-off,
- * question log (answered vs escalated). Polls every 15s while the tab is open.
+ * Deck analytics (specs/decks/analytics.md, PRD §4.10): opens, completion,
+ * per-slide drop-off and the question log. Polls every 15s while the tab is visible.
  */
 export default function DeckAnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<Analytics | null>(null);
+  const [data, setData] = useState<DeckAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const res = await fetch(`/api/decks/${id}/analytics`);
-      if (cancelled) return;
-      if (!res.ok) {
-        setError("Couldn't load analytics.");
-        return;
-      }
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/decks/${id}/analytics`, { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
       setData(await res.json());
+      setError(null);
+    } catch {
+      setError("Couldn't load analytics.");
     }
-    load();
-    const t = setInterval(load, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
   }, [id]);
 
-  if (error) return <p className="muted">{error}</p>;
-  if (!data) return <p className="muted">Loading…</p>;
+  useEffect(() => {
+    void load();
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
-  const maxViews = Math.max(1, ...data.perSlide.map((s) => s.views));
+  const hasOpens = (data?.totalOpens ?? 0) > 0;
+  const questionsCount = data?.questions.length ?? 0;
 
   return (
-    <>
-      <h1>Analytics</h1>
+    <AppShell>
+      <div className="min-h-[calc(100dvh-4.5rem)] bg-[#f7f9fc]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+          <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+            <Link href="/dashboard" className="hover:text-foreground">Decks</Link>
+            <span aria-hidden>/</span>
+            <Link href={`/decks/${id}/edit`} className="max-w-[14rem] truncate hover:text-foreground">
+              {data?.deckTitle ?? "Deck"}
+            </Link>
+            <span aria-hidden>/</span>
+            <span aria-current="page" className="text-foreground/70">Analytics</span>
+          </nav>
 
-      {data.totalOpens === 0 ? (
-        <div className="card" style={{ marginTop: 20, textAlign: "center", padding: 48 }}>
-          <p className="muted">No activity yet. Once someone opens your shared link, engagement shows up here.</p>
-        </div>
-      ) : (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 20 }}>
-            <div className="card">
-              <div className="muted" style={{ fontSize: 12 }}>Opens</div>
-              <div style={{ fontSize: 28, fontWeight: 700 }}>{data.totalOpens}</div>
+          <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#176bff]">Deck performance</p>
+              <h1 className="mt-2 font-display text-4xl font-bold tracking-tighter sm:text-5xl">Analytics</h1>
+              <p className="mt-3 max-w-md text-base text-muted-foreground">
+                See where viewers stay, leave, and ask questions.
+              </p>
             </div>
-            <div className="card">
-              <div className="muted" style={{ fontSize: 12 }}>Completed</div>
-              <div style={{ fontSize: 28, fontWeight: 700 }}>{data.completedCount}</div>
-            </div>
-            <div className="card">
-              <div className="muted" style={{ fontSize: 12 }}>Completion rate</div>
-              <div style={{ fontSize: 28, fontWeight: 700 }}>{data.completionRate}%</div>
-            </div>
-            <div className="card">
-              <div className="muted" style={{ fontSize: 12 }}>Questions asked</div>
-              <div style={{ fontSize: 28, fontWeight: 700 }}>{data.questions.length}</div>
-            </div>
+            <Link
+              href={`/decks/${id}/publish`}
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground transition-transform hover:-translate-y-0.5"
+            >
+              <span aria-hidden>↗</span> Share deck
+            </Link>
           </div>
 
-          <div className="card" style={{ marginTop: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Per-slide drop-off</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              {data.perSlide.map((s) => (
-                <div key={s.order_index} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="muted" style={{ fontSize: 12, width: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {String(s.order_index).padStart(2, "0")} · {s.title || "(untitled)"}
-                  </span>
-                  <div style={{ flex: 1, background: "var(--line)", borderRadius: 6, height: 10 }}>
-                    <div style={{ width: `${(s.views / maxViews) * 100}%`, background: "var(--primary)", height: "100%", borderRadius: 6 }} />
-                  </div>
-                  <span className="muted" style={{ fontSize: 12, width: 30, textAlign: "right" }}>{s.views}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <p className="mt-8 text-sm text-muted-foreground">All shared links · Refreshes every 15 seconds</p>
 
-          <div className="card" style={{ marginTop: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Question log</h3>
-            {data.questions.length === 0 ? (
-              <p className="muted">No questions asked yet.</p>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {data.questions.map((q, i) => (
-                  <div key={i} style={{ borderBottom: "1px solid var(--line)", paddingBottom: 10 }}>
-                    <div style={{ fontWeight: 600 }}>{q.text}</div>
-                    <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-                      {q.answer_text}
-                      {q.slide_ref && ` (slide ${q.slide_ref})`}
-                    </div>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>
-                      <span style={{ color: q.escalated ? "var(--escalate, #b4620a)" : "var(--confident, #136a3a)" }}>
-                        {q.escalated ? "Escalated" : "Answered from deck"}
-                      </span>
-                      {"  ·  "}
-                      <span className="muted">{new Date(q.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
+          {error && !data ? (
+            <div role="alert" className="mt-3 flex flex-col items-start gap-3 rounded-2xl border border-border bg-background p-6">
+              <p className="font-semibold">{error}</p>
+              <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
+              <Button size="sm" variant="secondary" onClick={() => void load()}>Retry</Button>
+            </div>
+          ) : !data ? (
+            <LoadingState />
+          ) : (
+            <>
+              {error ? (
+                <p role="status" className="mt-2 text-xs text-[#b4581f]">
+                  Couldn&apos;t refresh just now. Showing the last numbers we loaded.
+                </p>
+              ) : null}
+
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                <StatCard label="Opens" value={String(data.totalOpens)} hint="Presentation sessions" />
+                <StatCard label="Completed" value={String(data.completedCount)} hint="Reached the end" />
+                <StatCard
+                  label="Completion rate"
+                  value={hasOpens ? `${data.completionRate}%` : "—"}
+                  hint={hasOpens ? `${data.completedCount} of ${data.totalOpens} opens` : "No opens yet"}
+                />
+                <StatCard label="Questions asked" value={String(questionsCount)} hint="Across all sessions" />
               </div>
-            )}
-          </div>
-        </>
-      )}
-    </>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+                <SlideEngagement slides={data.perSlide} hasOpens={hasOpens} />
+                <QuestionLog questions={data.questions} />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div aria-busy="true" aria-label="Loading analytics">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-[8.5rem] animate-pulse rounded-2xl border border-border bg-background" />
+        ))}
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+        <div className="h-80 animate-pulse rounded-2xl border border-border bg-background" />
+        <div className="h-80 animate-pulse rounded-2xl border border-border bg-background" />
+      </div>
+    </div>
   );
 }

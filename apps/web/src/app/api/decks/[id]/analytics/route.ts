@@ -15,7 +15,8 @@ export async function GET(_req: Request, { params }: Ctx) {
   return handle(async () => {
     const { id } = await params;
     const user = await requireUser();
-    await assertDeckOwner(id, user.id);
+    const deck = await assertDeckOwner(id, user.id);
+    const deckTitle = deck.title || "Untitled deck";
 
     const supabase = await createServerClient();
 
@@ -26,6 +27,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 
     const shareIds = (shares ?? []).map((s) => s.id);
     const empty = {
+      deckTitle,
       totalOpens: 0,
       completedCount: 0,
       completionRate: 0,
@@ -57,6 +59,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     const completedCount = sessions!.filter((s) => s.completed).length;
 
     return Response.json({
+      deckTitle,
       totalOpens,
       completedCount,
       completionRate: totalOpens > 0 ? Math.round((completedCount / totalOpens) * 100) : 0,

@@ -6,3 +6,4 @@ export type {
   DeckSlide,
   StoredDeck,
 } from "./types";
+export { findLargestDropoff } from "./slide-dropoff";
