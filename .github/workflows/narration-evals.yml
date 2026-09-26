@@ -1,0 +1,83 @@
+name: narration-evals
+
+# Runs on changes to narration generation or the evals themselves.
+# - offline job: always. Unit tests, dataset validation, golden scripts pass the rules. No keys needed.
+# - live job: only when the API keys are configured as repository secrets. Generates narration for the
+#   dev split with the real model, grades it (rules + LLM judge), scores it against the committed
+#   baseline (apps/web/evals/baseline.json) and fails the PR if the gate fails.
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/lib/prompts.ts"
+      - "apps/web/src/lib/llm.ts"
+      - "apps/web/src/lib/deckProcessor.ts"
+      - "apps/web/src/app/api/script/**"
+      - "domains/narration/**"
+      - "apps/web/evals/**"
+      - ".github/workflows/narration-evals.yml"
+  workflow_dispatch:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm install
+      - run: npm run eval:test -w @voxdeck/web
+      - run: npm run eval:dataset -w @voxdeck/web -- validate
+      - run: npm run eval:rules -w @voxdeck/web -- --golden --fail-on-hard --quiet
+
+  live:
+    runs-on: ubuntu-latest
+    needs: offline
+    env:
+      HAS_KEYS: ${{ secrets.GROQ_API_KEY != '' && secrets.ANTHROPIC_API_KEY != '' }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'groq' }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
+      EVAL_NARRATOR_PRICE_IN: ${{ vars.EVAL_NARRATOR_PRICE_IN }}
+      EVAL_NARRATOR_PRICE_OUT: ${{ vars.EVAL_NARRATOR_PRICE_OUT }}
+      EVAL_JUDGE_PRICE_IN: ${{ vars.EVAL_JUDGE_PRICE_IN }}
+      EVAL_JUDGE_PRICE_OUT: ${{ vars.EVAL_JUDGE_PRICE_OUT }}
+    steps:
+      - name: Skip notice
+        if: env.HAS_KEYS != 'true'
+        run: echo "GROQ_API_KEY / ANTHROPIC_API_KEY secrets not set; skipping the live eval."
+      - uses: actions/checkout@v4
+        if: env.HAS_KEYS == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEYS == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+      - if: env.HAS_KEYS == 'true'
+        run: npm install
+      - name: Generate narration (dev split)
+        if: env.HAS_KEYS == 'true'
+        run: npm run eval:run -w @voxdeck/web -- --label "PR #${{ github.event.pull_request.number || 'manual' }}"
+      - name: Grade with rules
+        if: env.HAS_KEYS == 'true'
+        run: npm run eval:rules -w @voxdeck/web -- --quiet
+      - name: Grade with LLM judge
+        if: env.HAS_KEYS == 'true'
+        run: npm run eval:judge -w @voxdeck/web
+      - name: Score and gate
+        if: env.HAS_KEYS == 'true'
+        id: score
+        run: npm run eval:score -w @voxdeck/web -- --gate
+      - name: Post report
+        if: always() && env.HAS_KEYS == 'true'
+        run: |
+          R=$(ls -td apps/web/evals/runs/*/ | head -1)
+          [ -f "$R/report.md" ] && cat "$R/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always() && env.HAS_KEYS == 'true'
+        with:
+          name: narration-eval-run
+          path: apps/web/evals/runs/

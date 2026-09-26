@@ -49,7 +49,8 @@
         "autonomous",
         "electric",
         "San Francisco"
-      ]
+      ],
+      "split": "holdout"
     },
     {
       "id": "uber-02",
@@ -90,7 +91,8 @@
       "bannedTerms": [
         "surge",
         "Lyft"
-      ]
+      ],
+      "split": "holdout"
     },
     {
       "id": "uber-03",
@@ -135,7 +137,8 @@
         "surge",
         "pooling",
         "food delivery"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-04",
@@ -182,7 +185,8 @@
         "Uber Eats",
         "Market Street",
         "Michigan Street"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-05",
@@ -232,7 +236,8 @@
         "Lyft",
         "billion",
         "fifteen clients"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-06",
@@ -278,7 +283,8 @@
         "Uber Eats",
         "$3.33",
         "music"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-07",
@@ -319,7 +325,8 @@
       ],
       "bannedTerms": [
         "delivery"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-08",
@@ -360,7 +367,8 @@
       "bannedTerms": [
         "background check",
         "crime"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-09",
@@ -402,7 +410,8 @@
         "granted",
         "real-time",
         "algorithm"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-10",
@@ -460,7 +469,8 @@
         "YouTube",
         "Gartner says",
         "Forrester says"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-11",
@@ -508,7 +518,8 @@
       "bannedTerms": [
         "guaranteed",
         "guarantee"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-12",
@@ -545,7 +556,8 @@
       "bannedTerms": [
         "promo",
         "discount"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "uber-13",
@@ -599,7 +611,8 @@
         "we're live",
         "App Store",
         "raised"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-01",
@@ -632,7 +645,8 @@
       ],
       "bannedTerms": [
         "Series A"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-02",
@@ -668,7 +682,8 @@
       "bannedTerms": [
         "rupees",
         "crore"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-03",
@@ -716,7 +731,8 @@
       ],
       "bannedTerms": [
         "Amway partner"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-04",
@@ -765,7 +781,8 @@
       ],
       "bannedTerms": [
         "hundred billion"
-      ]
+      ],
+      "split": "holdout"
     },
     {
       "id": "meesho-05",
@@ -812,7 +829,8 @@
       ],
       "bannedTerms": [
         "Alibaba"
-      ]
+      ],
+      "split": "holdout"
     },
     {
       "id": "meesho-06",
@@ -861,7 +879,8 @@
       "bannedTerms": [
         "discount",
         "cheapest"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-07",
@@ -904,7 +923,8 @@
       "bannedTerms": [
         "Flipkart",
         "Amazon"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-08",
@@ -956,7 +976,8 @@
         "warehouse",
         "our inventory",
         "commission"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-09",
@@ -991,7 +1012,8 @@
       "bannedTerms": [
         "inventory",
         "downloads"
-      ]
+      ],
+      "split": "holdout"
     },
     {
       "id": "meesho-10",
@@ -1048,7 +1070,8 @@
       "bannedTerms": [
         "profitable",
         "profit"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-11",
@@ -1115,7 +1138,8 @@
       ],
       "bannedTerms": [
         "DAU"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-12",
@@ -1170,7 +1194,8 @@
       ],
       "bannedTerms": [
         "churn"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-13",
@@ -1242,7 +1267,8 @@
       ],
       "bannedTerms": [
         "million resellers"
-      ]
+      ],
+      "split": "holdout"
     },
     {
       "id": "meesho-14",
@@ -1292,7 +1318,8 @@
         "per user,",
         "scaled to two million",
         "reached two million"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-15",
@@ -1330,7 +1357,8 @@
       ],
       "bannedTerms": [
         "internet users"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-16",
@@ -1376,7 +1404,8 @@
       "bannedTerms": [
         "Harvard",
         "Stanford"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-17",
@@ -1422,7 +1451,8 @@
         "Accel",
         "Tiger Global",
         "SoftBank"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-18",
@@ -1474,7 +1504,8 @@
         "profitability",
         "$5M",
         "$30M"
-      ]
+      ],
+      "split": "dev"
     },
     {
       "id": "meesho-19",
@@ -1511,12 +1542,14 @@
         "Sundeep Madra",
         "Neeraj Arora",
         "Vy Capital"
-      ]
+      ],
+      "split": "dev"
     }
   ],
   "notes": {
     "slideText": "Flat visible text, one line (matches the Google Sheet).",
     "slideLines": "The same text broken into lines the way Cloud Vision returns them. The runner's text mode feeds these, because structureSlideContent derives title/body from line breaks. Meesho: pdfplumber text layer (slides 1 and 19 replaced with the visible text; slide 5 title de-garbled). Uber: transcribed from the slide images, including chart axis labels and app-mockup text Vision would pick up.",
-    "bannedTerms": "Literal strings the rules grader matches (case-insensitive, whole word). Each comes from that row's must_not_say. The fuzzy must_not_say items are left to the LLM judge."
+    "bannedTerms": "Literal strings the rules grader matches (case-insensitive, whole word). Each comes from that row's must_not_say. The fuzzy must_not_say items are left to the LLM judge.",
+    "split": "About 20% of rows (stratified by difficulty, picked by a fixed hash) are 'holdout'. The runner saves only 'dev' rows by default. Tune prompts against dev; run --split holdout only to confirm a change before shipping, never while iterating."
   }
 }

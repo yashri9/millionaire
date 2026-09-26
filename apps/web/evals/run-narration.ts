@@ -35,6 +35,7 @@ import {
   type NarrationResult,
   type SlideContent,
 } from "@voxdeck/narration";
+import { latestDataset } from "./paths.ts";
 
 // ---------- types ----------
 type GoldenRow = {
@@ -51,6 +52,7 @@ type GoldenRow = {
   mustMentionCritical: string[];
   mustMentionOptional: string[];
   mustNotSay: string[];
+  split?: "dev" | "holdout";
 };
 type GoldenDataset = {
   name: string;
@@ -83,6 +85,9 @@ type OutputRecord = {
   /** Estimate at 150 wpm until TTS runs in the loop. */
   estDurationSec: number;
   deckLatencyMs: number;
+  /** Narrator LLM usage for this slide, observed from the app's own API calls (includes number-check retries). */
+  llm: { calls: number; inputTokens: number; outputTokens: number; ms: number };
+  split: string;
   error: string | null;
 };
 
@@ -99,13 +104,14 @@ const { values: args } = parseArgs({
   options: {
     mode: { type: "string", default: "text" },
     path: { type: "string", default: "cloud" },
-    dataset: { type: "string", default: path.join(EVALS, "golden", "narration-v2.json") },
+    dataset: { type: "string", default: latestDataset() },
     deck: { type: "string" },
     rows: { type: "string" },
     repeats: { type: "string", default: "1" },
     label: { type: "string", default: "" },
     out: { type: "string", default: path.join(EVALS, "runs") },
     "require-llm": { type: "boolean", default: false },
+    split: { type: "string", default: "dev" },
   },
 });
 
@@ -207,6 +213,43 @@ async function buildSlide(row: GoldenRow, total: number, deck: GoldenDataset["de
   return { slide, text, textSource, pickReason };
 }
 
+// ---------- narrator usage (observed, app code untouched) ----------
+type Usage = { calls: number; inputTokens: number; outputTokens: number; ms: number };
+const usageBySlide = new Map<string, Usage>(); // key: `${deckTitle}#${slideNo}`
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+  const body = typeof init?.body === "string" ? init.body : null;
+  let key: string | null = null;
+  if (body && body.includes('"messages"')) {
+    try {
+      const req = JSON.parse(body) as { messages?: { role: string; content: unknown }[] };
+      const user = req.messages?.find((m) => m.role === "user")?.content;
+      const text = typeof user === "string" ? user : "";
+      const payload = JSON.parse(text.split("\n\nRETRY")[0]) as { deck?: { companyName?: string }; slide?: { slideNo?: number } };
+      if (payload.slide?.slideNo != null) key = `${payload.deck?.companyName ?? ""}#${payload.slide.slideNo}`;
+    } catch {
+      key = null; // not a narration call
+    }
+  }
+  const t0 = Date.now();
+  const res = await realFetch(input, init);
+  if (!key) return res;
+  const u = usageBySlide.get(key) ?? { calls: 0, inputTokens: 0, outputTokens: 0, ms: 0 };
+  u.calls++;
+  u.ms += Date.now() - t0;
+  try {
+    const data = (await res.clone().json()) as {
+      usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number };
+    };
+    u.inputTokens += data.usage?.prompt_tokens ?? data.usage?.input_tokens ?? 0;
+    u.outputTokens += data.usage?.completion_tokens ?? data.usage?.output_tokens ?? 0;
+  } catch {
+    /* non-JSON error body */
+  }
+  usageBySlide.set(key, u);
+  return res;
+};
+
 // ---------- main ----------
 async function main() {
   const dataset = JSON.parse(readFileSync(args.dataset!, "utf8")) as GoldenDataset;
@@ -240,12 +283,15 @@ async function main() {
     const allRows = dataset.rows.filter((r) => r.deckId === deckId).sort((a, b) => a.slideNum - b.slideNum);
     const rows = rowFilter ? allRows.filter((r) => rowFilter.includes(r.id)) : allRows;
     if (!rows.length) continue;
+    // The whole deck is always generated (neighbour context), but only the requested split is saved.
+    const keep = (r: GoldenRow) => args.split === "all" || (r.split ?? "dev") === args.split;
 
     const built = [];
     for (const row of rows) built.push({ row, ...(await buildSlide(row, allRows.length, deck)) });
 
     for (let rep = 1; rep <= repeats; rep++) {
       process.stdout.write(`${deckId} (${rows.length} slides) repeat ${rep}/${repeats} ... `);
+      usageBySlide.clear();
       const t0 = Date.now();
       let results: NarrationResult[] = [];
       let error: string | null = null;
@@ -262,6 +308,7 @@ async function main() {
       console.log(error ? `ERROR: ${error}` : `${(deckLatencyMs / 1000).toFixed(1)}s`);
 
       for (const b of built) {
+        if (!keep(b.row)) continue;
         const res = results.find((r) => r.slideNo === b.row.slideNum);
         const narration = res?.narration ?? "";
         records.push({
@@ -289,6 +336,8 @@ async function main() {
           wordCount: words(narration),
           estDurationSec: Math.round((words(narration) / 2.5) * 10) / 10,
           deckLatencyMs,
+          llm: usageBySlide.get(`${deck.companyName}#${b.row.slideNum}`) ?? { calls: 0, inputTokens: 0, outputTokens: 0, ms: 0 },
+          split: b.row.split ?? "dev",
           error: error ?? (res ? null : "no result for slide"),
         });
       }
@@ -316,7 +365,13 @@ async function main() {
     mode,
     inputPath,
     repeats,
-    dataset: { name: dataset.name, version: dataset.version, path: path.relative(WEB_ROOT, args.dataset!) },
+    dataset: {
+      name: dataset.name,
+      version: dataset.version,
+      path: path.relative(WEB_ROOT, args.dataset!),
+      // Changes if anyone edits the dataset in place without bumping the version.
+      sha256: createHash("sha256").update(readFileSync(args.dataset!)).digest("hex").slice(0, 16),
+    },
     pipeline: {
       provider: provider.provider,
       model: provider.model,
@@ -325,13 +380,18 @@ async function main() {
       gitSha: sh("git rev-parse --short HEAD"),
       gitDirty: Boolean(sh("git status --porcelain")),
     },
-    filters: { deck: deckFilter ?? null, rows: rowFilter ?? null },
+    filters: { deck: deckFilter ?? null, rows: rowFilter ?? null, split: args.split },
     counts: {
       outputs: records.length,
       modelOutputs: records.length - nonModel.length,
       fallbackOutputs: nonModel.length,
       errors: records.filter((r) => r.error).length,
       over34Words: records.filter((r) => r.wordCount > 34).length,
+    },
+    usage: {
+      llmCalls: records.reduce((n, r) => n + r.llm.calls, 0),
+      inputTokens: records.reduce((n, r) => n + r.llm.inputTokens, 0),
+      outputTokens: records.reduce((n, r) => n + r.llm.outputTokens, 0),
     },
     node: process.version,
   };

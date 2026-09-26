@@ -32,6 +32,7 @@ import {
   faithfulnessUser,
   judgeConfigFromEnv,
   judgePasses,
+  judgeUsage,
   parseJudgeReply,
   styleUser,
   type Coverage,
@@ -40,6 +41,7 @@ import {
   type JudgeConfig,
   type Style,
 } from "./judge.ts";
+import { latestDataset } from "./paths.ts";
 
 type Row = {
   id: string;
@@ -82,7 +84,7 @@ const { values: args } = parseArgs({
   options: {
     run: { type: "string" },
     runs: { type: "string", default: path.join(EVALS, "runs") },
-    dataset: { type: "string", default: path.join(EVALS, "golden", "narration-v2.json") },
+    dataset: { type: "string", default: latestDataset() },
     golden: { type: "boolean", default: false },
     all: { type: "boolean", default: false },
     "with-image": { type: "boolean", default: false },
@@ -267,6 +269,7 @@ async function main() {
     mustNotSayHits: judged.reduce((n, g) => n + g.faithfulness!.mustNotSayHits.length, 0),
     calls,
     cacheHits,
+    usage: { ...judgeUsage },
   };
   writeFileSync(path.join(outDir, "judge-summary.json"), JSON.stringify(summary, null, 2) + "\n");
 

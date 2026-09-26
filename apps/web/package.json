@@ -12,10 +12,12 @@
     "test": "node --experimental-strip-types --test src/lib/deck-autosave.test.ts src/lib/playback-state.test.ts src/lib/deck-id.test.ts",
     "eval:run": "tsx --conditions=react-server evals/run-narration.ts",
     "eval:rules": "tsx evals/grade-rules.ts",
-    "eval:test": "tsx --test evals/rules.test.ts evals/judge.test.ts",
+    "eval:test": "tsx --test evals/rules.test.ts evals/judge.test.ts evals/tools.test.ts",
     "eval:judge": "tsx evals/grade-judge.ts",
     "eval:score": "tsx evals/score.ts",
-    "eval:all": "npm run eval:run && npm run eval:rules && npm run eval:judge && npm run eval:score"
+    "eval:all": "npm run eval:run && npm run eval:rules && npm run eval:judge && npm run eval:score",
+    "eval:calibrate": "tsx evals/calibrate.ts",
+    "eval:dataset": "tsx evals/dataset.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.68.0",

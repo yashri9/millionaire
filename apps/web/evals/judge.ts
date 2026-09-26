@@ -129,7 +129,7 @@ export type JudgeConfig = {
 };
 
 /** Reads JUDGE_* env; defaults to Anthropic when ANTHROPIC_API_KEY is set, else OpenAI-compatible (Groq). */
-export function judgeConfigFromEnv(env = process.env): JudgeConfig | null {
+export function judgeConfigFromEnv(env: Record<string, string | undefined> = process.env): JudgeConfig | null {
   const provider = (env.JUDGE_PROVIDER ?? (env.ANTHROPIC_API_KEY ? "anthropic" : "groq")).toLowerCase();
   if (provider === "anthropic") {
     const apiKey = env.JUDGE_API_KEY ?? env.ANTHROPIC_API_KEY ?? "";
@@ -157,6 +157,9 @@ export function judgeConfigFromEnv(env = process.env): JudgeConfig | null {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Running totals of judge API usage (cache hits cost nothing and are not counted). */
+export const judgeUsage = { calls: 0, inputTokens: 0, outputTokens: 0, ms: 0 };
+
 export async function callJudge(
   cfg: JudgeConfig,
   system: string,
@@ -165,6 +168,7 @@ export async function callJudge(
   attempt = 0,
 ): Promise<string> {
   let res: Response;
+  const t0 = Date.now();
   if (cfg.provider === "anthropic") {
     const content: unknown[] = [];
     if (image) content.push({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.base64 } });
@@ -198,7 +202,12 @@ export async function callJudge(
   const data = (await res.json()) as {
     content?: { type: string; text?: string }[];
     choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number };
   };
+  judgeUsage.calls++;
+  judgeUsage.ms += Date.now() - t0;
+  judgeUsage.inputTokens += data.usage?.input_tokens ?? data.usage?.prompt_tokens ?? 0;
+  judgeUsage.outputTokens += data.usage?.output_tokens ?? data.usage?.completion_tokens ?? 0;
   const text =
     cfg.provider === "anthropic"
       ? data.content?.find((b) => b.type === "text")?.text

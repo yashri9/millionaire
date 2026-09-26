@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { gradeDeckRepetition, gradeRules, passesRules, type RuleId, type RuleResult } from "./rules.ts";
+import { latestDataset } from "./paths.ts";
 
 type Row = {
   id: string;
@@ -42,7 +43,7 @@ const { values: args } = parseArgs({
   options: {
     run: { type: "string" },
     runs: { type: "string", default: path.join(EVALS, "runs") },
-    dataset: { type: "string", default: path.join(EVALS, "golden", "narration-v2.json") },
+    dataset: { type: "string", default: latestDataset() },
     golden: { type: "boolean", default: false },
     "fail-on-hard": { type: "boolean", default: false },
     quiet: { type: "boolean", default: false },
