@@ -78,3 +78,59 @@ Writes `grades-rules.jsonl` (every rule result per slide) and `rules-summary.jso
 Grounding uses the golden visible slide text, not the OCR text a run used, so an OCR misread that ends up as a wrong number still counts as wrong. A slide passes the rules layer if no hard rule fails. The LLM judge is the next layer and handles what rules can't: paraphrased coverage, unsupported claims, tone.
 
 The grader parses numbers by value ("six hundred twenty-five thousand" = 625,000, "1.3M" = 1,300,000, "100X" = 100). The app's `number-check.ts` misreads some of these: "six hundred twenty-five thousand" becomes 25,000, and "1.3 million" can't match the 1,300,000 it means. It also strips "Week N" labels from the source, so narration that says "by week ten" fails the production gate.
+
+## Grade with the LLM judge
+
+```bash
+npm run eval:judge                    # latest run; only slides that passed the hard rules
+npm run eval:judge -- --all           # every slide
+npm run eval:judge -- --with-image    # also show the judge the slide image (Anthropic judge)
+npm run eval:judge -- --golden        # judge the golden scripts (should score ~5)
+npm run eval:judge -- --no-cache      # force fresh judgments
+```
+
+The judge makes three calls per slide, all at temperature 0, all returning JSON (validated with zod, one retry on bad JSON):
+
+- **Faithfulness (1-5):** splits the narration into claims and marks each yes / partial / no, with the slide evidence and a tag ([N] number, [H] invented, [L] other slide, [O] overclaim). It also lists any `must_not_say` it violates.
+- **Coverage:** hit or miss for each critical and optional `must_mention` item, quoting the narration.
+- **Style (1-5):** spoken presenter voice. It never sees the golden script, so it can't reward copying one wording.
+
+**Judge model.** The judge is configured separately from the narrator so a model never grades itself: `JUDGE_PROVIDER` (anthropic | groq | xai | openai), `JUDGE_MODEL`, `JUDGE_API_KEY`, `JUDGE_BASE_URL`. It defaults to Anthropic when `ANTHROPIC_API_KEY` is set, and warns if the judge model equals the narrator model.
+
+**Cache.** Judgments are cached in `.cache/judge`, keyed by prompt version, judge model and inputs, so re-scoring an unchanged narration is free. Bump `JUDGE_PROMPT_VERSION` in `judge.ts` whenever you edit a judge prompt.
+
+Writes `grades-judge.jsonl` and `judge-summary.json`.
+
+## Score, baseline and gate
+
+```bash
+npm run eval:score                    # verdicts + report for the latest run
+npm run eval:score -- --set-baseline  # save this run's scorecard as evals/baseline.json (commit it)
+npm run eval:score -- --gate          # exit 1 if worse than the baseline (CI)
+npm run eval:all                      # run -> rules -> judge -> score
+```
+
+Verdict per slide:
+
+- **PASS:** no hard rule failed, faithfulness ≥ 4, 100% critical coverage, and no `must_not_say` hit.
+- **FAIL:** any of those missed, with the reasons listed.
+- **INCOMPLETE:** not judged yet.
+- **ERROR:** the judge errored.
+
+Writes `scorecard.json` and a readable `report.md` into the run folder. The report has headline metrics (with deltas vs baseline), pass rate by slide type and difficulty, regressions and fixes per row, the gate result, and every failing slide with its narration and reasons.
+
+The gate (`GATE` in `score.ts`) fails when:
+
+- the pass rate drops more than 2 points,
+- average faithfulness drops more than 0.1,
+- [N] or [H] violations increase,
+- any output is a fallback,
+- or any slide is incomplete or errored.
+
+The baseline is only compared when it uses the same dataset version.
+
+## Workflow
+
+1. Change a prompt, model or pipeline step.
+2. `npm run eval:all` (or the four steps separately, with flags), then read `report.md` in the new run folder.
+3. If it's better, `npm run eval:score -- --set-baseline` and commit `evals/baseline.json` with the change.
