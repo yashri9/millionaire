@@ -26,25 +26,29 @@
       "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-01.jpg",
       "slideImagePath": "public/marketing/uber/slides/page-01.jpg",
       "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
-      "goldenScript": "We're building UberCab, the next generation of car service: an on-demand ride you book from your phone, starting in San Francisco.",
+      "goldenScript": "We're Uber, and we're building the next generation of car service. Let me walk you through why getting a ride is ready for a change.",
       "mustMentionCritical": [
         "next-generation car service"
       ],
-      "mustMentionOptional": [
-        "on-demand, booked from your phone (deck context)",
-        "San Francisco launch (deck context)"
-      ],
+      "mustMentionOptional": [],
       "mustNotSay": [
         "[H] safer/faster/more reliable claims (not on slide)",
         "[H] founding year or dates",
         "[N] valuation or funding numbers",
         "[H] self-driving or EV claims",
-        "[N] specific prices"
+        "[N] specific prices",
+        "[H] San Francisco or UberCab (not on this slide; production doesn't give the model a deck description)"
       ],
       "reviewStatus": "draft - needs human review",
       "slideLines": [
         "Uber",
         "Next-Generation Car Service"
+      ],
+      "bannedTerms": [
+        "self-driving",
+        "autonomous",
+        "electric",
+        "San Francisco"
       ]
     },
     {
@@ -82,6 +86,10 @@
         "No GPS coordination between",
         "client/driver.",
         "Uber"
+      ],
+      "bannedTerms": [
+        "surge",
+        "Lyft"
       ]
     },
     {
@@ -122,6 +130,11 @@
         "device technology.",
         "Optimized fleets and",
         "incentivized drivers."
+      ],
+      "bannedTerms": [
+        "surge",
+        "pooling",
+        "food delivery"
       ]
     },
     {
@@ -164,6 +177,11 @@
         "but from your phone.",
         "Guaranteed Pick-up",
         "(unlike a yellow-cab)"
+      ],
+      "bannedTerms": [
+        "Uber Eats",
+        "Market Street",
+        "Michigan Street"
       ]
     },
     {
@@ -209,6 +227,11 @@
         "Geo-aware Auto-dispatch",
         "Great Drivers",
         "Rating System"
+      ],
+      "bannedTerms": [
+        "Lyft",
+        "billion",
+        "fifteen clients"
       ]
     },
     {
@@ -250,6 +273,11 @@
         "Book Trips, show Fleet",
         "status, trip history.",
         "Easy & Fast"
+      ],
+      "bannedTerms": [
+        "Uber Eats",
+        "$3.33",
+        "music"
       ]
     },
     {
@@ -288,6 +316,9 @@
         "where parking isn't easy",
         "Working while",
         "commuting (wifi in cars)"
+      ],
+      "bannedTerms": [
+        "delivery"
       ]
     },
     {
@@ -325,6 +356,10 @@
         "as limos",
         "Cars services",
         "Uber"
+      ],
+      "bannedTerms": [
+        "background check",
+        "crime"
       ]
     },
     {
@@ -361,6 +396,12 @@
         "Patent-pending",
         "system design",
         "Uber"
+      ],
+      "bannedTerms": [
+        "patented",
+        "granted",
+        "real-time",
+        "algorithm"
       ]
     },
     {
@@ -413,6 +454,12 @@
         "For more details:",
         "https://youtu.be/M_RMTC2YmXY",
         "Source: Forrester / Gartner / your Uncle"
+      ],
+      "bannedTerms": [
+        "your uncle",
+        "YouTube",
+        "Gartner says",
+        "Forrester says"
       ]
     },
     {
@@ -457,6 +504,10 @@
         "client service in SF. Time-",
         "saver for San-Francisco",
         "based executives."
+      ],
+      "bannedTerms": [
+        "guaranteed",
+        "guarantee"
       ]
     },
     {
@@ -490,6 +541,10 @@
         "Become the ubiquitous",
         "“premium” cab service",
         "Uber"
+      ],
+      "bannedTerms": [
+        "promo",
+        "discount"
       ]
     },
     {
@@ -538,6 +593,12 @@
         "January",
         "Bank Account + Paypal",
         "account"
+      ],
+      "bannedTerms": [
+        "secured",
+        "we're live",
+        "App Store",
+        "raised"
       ]
     },
     {
@@ -568,6 +629,9 @@
         "Turning Housewives",
         "into entrepreneurs",
         "meesho Supply"
+      ],
+      "bannedTerms": [
+        "Series A"
       ]
     },
     {
@@ -600,6 +664,10 @@
         "Housewives in India",
         "Lots of Free Time Need Secondary Income Highly Social",
         "SOCIAL SELLING"
+      ],
+      "bannedTerms": [
+        "rupees",
+        "crore"
       ]
     },
     {
@@ -612,16 +680,14 @@
       "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-03.jpg",
       "slideImagePath": "public/marketing/meesho/slides/page-03.jpg",
       "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
-      "goldenScript": "Social selling is ancient, from local boutiques and kitty parties to Amway's billion-dollar direct selling. Since 2014, multimedia sharing has turned it into reselling on WhatsApp and Facebook: a hundred-times opportunity, with wider reach, zero investment and just a smartphone.",
+      "goldenScript": "Social selling is ancient, from local boutiques and kitty parties to Amway's billion-dollar direct selling. Since 2014, multimedia sharing has turned it into reselling: a hundred-times opportunity, with wider reach, zero investment and just a smartphone.",
       "mustMentionCritical": [
         "old model: boutiques/exhibitions, kitty parties, direct selling (Amway $1B)",
         "since 2014: dropshipping/reselling via multimedia sharing",
         "100x opportunity",
         "more lucrative, no investment, on smartphone"
       ],
-      "mustMentionOptional": [
-        "WhatsApp, Instagram, Facebook logos"
-      ],
+      "mustMentionOptional": [],
       "mustNotSay": [
         "[N] revenue comparisons other than Amway $1B",
         "[H] calling it e-commerce",
@@ -647,6 +713,9 @@
         "High Convenience (On Smartphone)",
         "•",
         "3"
+      ],
+      "bannedTerms": [
+        "Amway partner"
       ]
     },
     {
@@ -693,6 +762,9 @@
         "(2017) (2022 proj.)",
         "SOURCE: ZINNOV CONSULTING",
         "4"
+      ],
+      "bannedTerms": [
+        "hundred billion"
       ]
     },
     {
@@ -737,6 +809,9 @@
         "Shops from Tier 3 cities or below Valuation at last round",
         "Raised $ 350 mn from Tencent,Others",
         "5"
+      ],
+      "bannedTerms": [
+        "Alibaba"
       ]
     },
     {
@@ -782,6 +857,10 @@
         "OUTBOUND",
         "Ads",
         "6"
+      ],
+      "bannedTerms": [
+        "discount",
+        "cheapest"
       ]
     },
     {
@@ -821,6 +900,10 @@
         "untrustworthy sourcing from FB; Cheated with high prices from Resellers No COD, No Returns, Many Fraud cases",
         "Larger suppliers inaccessible",
         "7"
+      ],
+      "bannedTerms": [
+        "Flipkart",
+        "Amazon"
       ]
     },
     {
@@ -868,6 +951,11 @@
         "b/w suppliers & resellers Supplier Ratings",
         "App transactions",
         "8"
+      ],
+      "bannedTerms": [
+        "warehouse",
+        "our inventory",
+        "commission"
       ]
     },
     {
@@ -899,6 +987,10 @@
         "PRODUCT",
         "CURATED COLLECTIONS EASY SOCIAL SHARING SUPPLIER PRICE/ RATINGS ORDER TRACKING",
         "9"
+      ],
+      "bannedTerms": [
+        "inventory",
+        "downloads"
       ]
     },
     {
@@ -952,6 +1044,10 @@
         "100%",
         "MoM Growth",
         "10 *Per Week"
+      ],
+      "bannedTerms": [
+        "profitable",
+        "profit"
       ]
     },
     {
@@ -1016,6 +1112,9 @@
         "Sessions/ Day/ User",
         "Timespent/ Day/ User",
         "11"
+      ],
+      "bannedTerms": [
+        "DAU"
       ]
     },
     {
@@ -1068,6 +1167,9 @@
         "1.4",
         "WAU/ DAU",
         "12"
+      ],
+      "bannedTerms": [
+        "churn"
       ]
     },
     {
@@ -1137,6 +1239,9 @@
         "92",
         "0 10 24 31 28 37 40 51 66 69",
         "Feb 20 Mar 06 Mar 20 Apr 3 Apr 17 May 1 May 15 May 29 Jun 12 Jun 26"
+      ],
+      "bannedTerms": [
+        "million resellers"
       ]
     },
     {
@@ -1181,6 +1286,12 @@
         "Offline Ads",
         "(Women Magazines)",
         "14"
+      ],
+      "bannedTerms": [
+        "per download",
+        "per user,",
+        "scaled to two million",
+        "reached two million"
       ]
     },
     {
@@ -1216,6 +1327,9 @@
         "STRUGGLING TO GROW",
         "HIGH FRICTION , LOW VARIETY & OUTDATED",
         "15"
+      ],
+      "bannedTerms": [
+        "internet users"
       ]
     },
     {
@@ -1258,6 +1372,10 @@
         "Style Tag, Snapdeal Ex-Founder, Samsung Gen Y",
         "NIFT IIT Rourkee ’14 IIT Rourkee ’15 IIT Bombay ’16",
         "16"
+      ],
+      "bannedTerms": [
+        "Harvard",
+        "Stanford"
       ]
     },
     {
@@ -1298,6 +1416,12 @@
         "Investopad",
         "Google",
         "17"
+      ],
+      "bannedTerms": [
+        "Sequoia",
+        "Accel",
+        "Tiger Global",
+        "SoftBank"
       ]
     },
     {
@@ -1344,6 +1468,12 @@
         "$3M",
         "$200K in Bank",
         "18"
+      ],
+      "bannedTerms": [
+        "profitable",
+        "profitability",
+        "$5M",
+        "$30M"
       ]
     },
     {
@@ -1374,11 +1504,19 @@
         "THANK YOU!",
         "Vidit Aatrey",
         "vidit@meesho.com"
+      ],
+      "bannedTerms": [
+        "Eric Kwan",
+        "Rajul Garg",
+        "Sundeep Madra",
+        "Neeraj Arora",
+        "Vy Capital"
       ]
     }
   ],
   "notes": {
     "slideText": "Flat visible text, one line (matches the Google Sheet).",
-    "slideLines": "The same text broken into lines the way Cloud Vision returns them. The runner's text mode feeds these, because structureSlideContent derives title/body from line breaks. Meesho: pdfplumber text layer (slides 1 and 19 replaced with the visible text; slide 5 title de-garbled). Uber: transcribed from the slide images, including chart axis labels and app-mockup text Vision would pick up."
+    "slideLines": "The same text broken into lines the way Cloud Vision returns them. The runner's text mode feeds these, because structureSlideContent derives title/body from line breaks. Meesho: pdfplumber text layer (slides 1 and 19 replaced with the visible text; slide 5 title de-garbled). Uber: transcribed from the slide images, including chart axis labels and app-mockup text Vision would pick up.",
+    "bannedTerms": "Literal strings the rules grader matches (case-insensitive, whole word). Each comes from that row's must_not_say. The fuzzy must_not_say items are left to the LLM judge."
   }
 }

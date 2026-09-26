@@ -2,7 +2,7 @@
   "name": "@voxdeck/web",
   "version": "0.1.0",
   "private": true,
-  "description": "VOXDECK web — Next.js studio, editor, publish, recipient runtime.",
+  "description": "VOXDECK web \u2014 Next.js studio, editor, publish, recipient runtime.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,7 +10,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test src/lib/deck-autosave.test.ts src/lib/playback-state.test.ts src/lib/deck-id.test.ts",
-    "eval:run": "tsx --conditions=react-server evals/run-narration.ts"
+    "eval:run": "tsx --conditions=react-server evals/run-narration.ts",
+    "eval:rules": "tsx evals/grade-rules.ts",
+    "eval:test": "tsx --test evals/rules.test.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.68.0",

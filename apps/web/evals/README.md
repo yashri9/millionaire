@@ -49,3 +49,32 @@ Known differences from production input: e2e mode OCRs the pre-rendered `page-*.
 - Duration is estimated at 150 wpm. TTS isn't in the loop yet.
 - Token cost isn't recorded, because `callLLM` doesn't return usage.
 - Only one deck latency is recorded per repeat, not per-slide latency, because the app generates two slides at a time.
+
+## Grade with rules
+
+```bash
+npm run eval:rules                    # grade the latest run
+npm run eval:rules -- --run <runId>   # a specific run
+npm run eval:rules -- --golden        # self-check: grade the golden scripts (should pass)
+npm run eval:rules -- --fail-on-hard  # exit 1 if any slide fails (CI)
+npm run eval:test                     # unit tests for the rules
+```
+
+Writes `grades-rules.jsonl` (every rule result per slide) and `rules-summary.json` (pass rate, violations by tag, by rule, deck, slide type, difficulty) into the run folder.
+
+| Rule | Hard? | Fails when |
+|---|---|---|
+| `pipeline` | yes | error, empty output, or the extractive fallback instead of the model |
+| `length` | yes | outside 15-40 words (warns above the pipeline's 34-word cap) |
+| `duration` | yes | outside 8-15 s. Skipped until runs record real TTS duration |
+| `numbers` | yes | `[N]` a number on no slide, or `[L]` a number from another slide. Rounding within 15% or axis/"Week N" labels only warn |
+| `banned_phrases` | yes | meta narration: "as you can see", "this slide", "the chart shows", "please review" |
+| `placeholders` | yes | template text read aloud: "X target customers", "your Uncle", URLs |
+| `formatting` | yes | markdown, bullets, citation brackets, line breaks, emoji |
+| `banned_terms` | yes | a literal string from the row's `bannedTerms` (taken from `must_not_say`) |
+| `name_leak` | warn | a capitalised name that is only on another slide of the deck |
+| `repetition` | warn | the same 6+ word sentence on two slides in one deck run |
+
+Grounding uses the golden visible slide text, not the OCR text a run used, so an OCR misread that ends up as a wrong number still counts as wrong. A slide passes the rules layer if no hard rule fails. The LLM judge is the next layer and handles what rules can't: paraphrased coverage, unsupported claims, tone.
+
+The grader parses numbers by value ("six hundred twenty-five thousand" = 625,000, "1.3M" = 1,300,000, "100X" = 100). The app's `number-check.ts` misreads some of these: "six hundred twenty-five thousand" becomes 25,000, and "1.3 million" can't match the 1,300,000 it means. It also strips "Week N" labels from the source, so narration that says "by week ten" fails the production gate.
