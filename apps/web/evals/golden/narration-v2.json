@@ -5,12 +5,14 @@
   "source": "Google Sheet 'Voxdeck narration golden dataset v2' (26 Sep 2026)",
   "decks": {
     "uber": {
-      "companyName": "Uber",
-      "textLayerPath": "public/marketing/uber/slides/_text.json"
+      "companyName": "uber-pitch-deck",
+      "textLayerPath": "public/marketing/uber/slides/_text.json",
+      "note": "companyName = upload filename without extension, which is what production uses as deck.title"
     },
     "meesho": {
-      "companyName": "Meesho",
-      "textLayerPath": "public/marketing/meesho/slides/_text.json"
+      "companyName": "meesho-first-pitch",
+      "textLayerPath": "public/marketing/meesho/slides/_text.json",
+      "note": "companyName = upload filename without extension, which is what production uses as deck.title"
     }
   },
   "rows": [

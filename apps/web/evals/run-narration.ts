@@ -4,6 +4,7 @@
  *
  *   npm run eval:run -w @voxdeck/web                      # text mode, all decks
  *   npm run eval:run -w @voxdeck/web -- --mode e2e        # Vision OCR from the slide images
+ *   npm run eval:run -w @voxdeck/web -- --path device                 # the device-draft input path
  *   npm run eval:run -w @voxdeck/web -- --deck meesho --repeats 3 --label "prompt v7"
  *
  * Modes
@@ -11,8 +12,13 @@
  *   e2e   Runs Cloud Vision on the slide image + the PDF text layer, then pickSlideText,
  *         exactly like deckProcessor.ts. Failures = OCR or narration.
  *
- * Both modes then call the production path: structureSlideContent -> (route's labeled-facts
- * fill) -> generateNarrationForDeck, with the same provider/model/temperature as the app.
+ * Input paths (how slide text becomes SlideContent, matching the two ways decks enter the app):
+ *   cloud   (default) Studio upload: deckProcessor.linesToSlide (first line = title, rest = bullets)
+ *           -> studio-api -> /api/script/generate. This is the default "cloud" upload mode.
+ *   device  Device draft: pdf-parse.ts -> structureSlideContent.
+ *
+ * Both then call the SAME generateNarrationForDeck() from src/lib/prompts.ts that the app calls,
+ * with deckPurpose "pitch" and the deck title, like production.
  *
  * Output: evals/runs/<runId>/{run.json, outputs.jsonl, outputs.csv}
  */
@@ -61,6 +67,7 @@ type OutputRecord = {
   slideNum: number;
   repeat: number;
   mode: Mode;
+  inputPath: "cloud" | "device";
   /** Text the pipeline actually used for this slide. */
   inputText: string;
   textSource: "golden" | "vision" | "text-layer";
@@ -91,6 +98,7 @@ for (const f of [".env.local", ".env"]) {
 const { values: args } = parseArgs({
   options: {
     mode: { type: "string", default: "text" },
+    path: { type: "string", default: "cloud" },
     dataset: { type: "string", default: path.join(EVALS, "golden", "narration-v2.json") },
     deck: { type: "string" },
     rows: { type: "string" },
@@ -102,6 +110,8 @@ const { values: args } = parseArgs({
 });
 
 const mode = args.mode as Mode;
+const inputPath = args.path as "cloud" | "device";
+if (inputPath !== "cloud" && inputPath !== "device") throw new Error(`--path must be cloud or device, got ${args.path}`);
 if (mode !== "text" && mode !== "e2e") throw new Error(`--mode must be text or e2e, got ${args.mode}`);
 const repeats = Math.max(1, Number(args.repeats) || 1);
 
@@ -155,8 +165,30 @@ async function buildSlide(row: GoldenRow, total: number, deck: GoldenDataset["de
     pickReason = pick.reason;
   }
 
+  if (inputPath === "cloud") {
+    // Mirrors deckProcessor.linesToSlide -> studio-api.uploadAndProcessPdf -> /api/script/generate:
+    // first line = title, rest = bullets, no chart regions, labeled facts filled by the route.
+    const clean = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const titleText = clean[0] ?? "";
+    const bodyText = clean.slice(1);
+    const slide: SlideContent = {
+      slideNo: row.slideNum,
+      totalSlides: total,
+      fingerprint: row.id,
+      titleText,
+      bodyText,
+      possibleChartRegions: [],
+      labeledFacts: buildLabeledFacts({ titleText, bodyText, possibleChartRegions: [] }),
+      imageCaptions: [],
+      footnotes: [],
+      extractionMethod: "text-layer",
+      ocrDetectedChart: false,
+    };
+    return { slide, text, textSource, pickReason };
+  }
+
   const ocrDetectedChart = detectChartFromOcr(text);
-  // OCR/flat text has no run geometry, same as the app's OCR path.
+  // Device path (pdf-parse.ts): OCR/flat text has no run geometry.
   const slide: SlideContent = structureSlideContent({
     slideNo: row.slideNum,
     totalSlides: total,
@@ -185,7 +217,7 @@ async function main() {
   const { providerStatus } = await import("@/lib/llm");
   const provider = providerStatus();
 
-  const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${mode}`;
+  const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${inputPath}-${mode}`;
   const outDir = path.join(args.out!, runId);
   mkdirSync(outDir, { recursive: true });
 
@@ -220,7 +252,8 @@ async function main() {
       try {
         results = await generateNarrationForDeck(
           built.map((b) => b.slide),
-          { companyName: deck.companyName, deckPurpose: rows[0].deckContext },
+          // Same as production: deck title (upload filename) + "pitch". The golden deckContext is for graders only.
+          { companyName: deck.companyName, deckPurpose: "pitch" },
         );
       } catch (err) {
         error = err instanceof Error ? err.message : String(err);
@@ -238,6 +271,7 @@ async function main() {
           slideNum: b.row.slideNum,
           repeat: rep,
           mode,
+          inputPath,
           inputText: b.text,
           textSource: b.textSource,
           pickReason: b.pickReason,
@@ -280,6 +314,7 @@ async function main() {
     startedAt: new Date(started).toISOString(),
     durationSec: Math.round((Date.now() - started) / 1000),
     mode,
+    inputPath,
     repeats,
     dataset: { name: dataset.name, version: dataset.version, path: path.relative(WEB_ROOT, args.dataset!) },
     pipeline: {

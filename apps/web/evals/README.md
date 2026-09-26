@@ -23,7 +23,18 @@ npm run eval:run -- --label "prompt v7" --require-llm
 
 ## What it calls
 
-`structureSlideContent` → labeled-facts fill (same as `/api/script/generate`) → `generateNarrationForDeck`, with the app's provider, model, temperature, number check, retry and fallbacks. Decks run in slide order, so previous-slide context matches production.
+Narration comes from the **same `generateNarrationForDeck()`** in `src/lib/prompts.ts` that the app calls. It isn't a copy, so it uses the app's prompt, provider, model, temperature, number check, retry and fallbacks. Like production, it passes the deck title (the upload filename) and `deckPurpose: "pitch"`. The golden `deckContext` is only for graders.
+
+How slide text is turned into the function's input depends on `--path`:
+
+| `--path` | Mirrors | Slide structure |
+|---|---|---|
+| `cloud` (default) | Default Studio upload: `deckProcessor` → `linesToSlide` → `studio-api` → `/api/script/generate` | first line = title, rest = bullets; labeled facts filled by the route; no chart flag |
+| `device` | Device draft: `pdf-parse.ts` → `structureSlideContent` | title/body/chart detection from `structureSlideContent` |
+
+Decks run in slide order, so previous-slide context matches production.
+
+Known differences from production input: e2e mode OCRs the pre-rendered `page-*.jpg` files instead of rendering the PDF, and the text layer comes from `_text.json` (flat) rather than pdf.js per-page lines.
 
 ## Output: `runs/<runId>/` (gitignored)
 
