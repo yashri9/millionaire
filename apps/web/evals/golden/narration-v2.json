@@ -1,0 +1,1382 @@
+{
+  "name": "voxdeck-narration-golden",
+  "version": "v2",
+  "status": "draft - rows need human review",
+  "source": "Google Sheet 'Voxdeck narration golden dataset v2' (26 Sep 2026)",
+  "decks": {
+    "uber": {
+      "companyName": "Uber",
+      "textLayerPath": "public/marketing/uber/slides/_text.json"
+    },
+    "meesho": {
+      "companyName": "Meesho",
+      "textLayerPath": "public/marketing/meesho/slides/_text.json"
+    }
+  },
+  "rows": [
+    {
+      "id": "uber-01",
+      "deckId": "uber",
+      "slideNum": 1,
+      "slideType": "title",
+      "difficulty": "easy",
+      "slideText": "Uber. Next-Generation Car Service.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-01.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-01.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "We're building UberCab, the next generation of car service: an on-demand ride you book from your phone, starting in San Francisco.",
+      "mustMentionCritical": [
+        "next-generation car service"
+      ],
+      "mustMentionOptional": [
+        "on-demand, booked from your phone (deck context)",
+        "San Francisco launch (deck context)"
+      ],
+      "mustNotSay": [
+        "[H] safer/faster/more reliable claims (not on slide)",
+        "[H] founding year or dates",
+        "[N] valuation or funding numbers",
+        "[H] self-driving or EV claims",
+        "[N] specific prices"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Uber",
+        "Next-Generation Car Service"
+      ]
+    },
+    {
+      "id": "uber-02",
+      "deckId": "uber",
+      "slideNum": 2,
+      "slideType": "problem",
+      "difficulty": "easy",
+      "slideText": "Problem. Most cabs in 2008 use aging & inefficient technology. Taxi-monopolies reduce the quality of service. No GPS coordination between client/driver.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-02.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-02.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "In 2008, most cabs ran on aging, inefficient technology. Taxi monopolies dragged down the quality of service, and there was no GPS coordination between the client and the driver.",
+      "mustMentionCritical": [
+        "aging/inefficient cab technology",
+        "taxi monopolies reduce service quality",
+        "no GPS coordination between client and driver"
+      ],
+      "mustMentionOptional": [
+        "2008 context"
+      ],
+      "mustNotSay": [
+        "[H] surge pricing",
+        "[H] Lyft or other competitor names",
+        "[N] invented wait-time statistics",
+        "[H] smartphone/app-store history"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Problem",
+        "Most cabs in 2008 use aging &",
+        "inefficient technology.",
+        "Taxi-monopolies reduce the",
+        "quality of service.",
+        "No GPS coordination between",
+        "client/driver.",
+        "Uber"
+      ]
+    },
+    {
+      "id": "uber-03",
+      "deckId": "uber",
+      "slideNum": 3,
+      "slideType": "solution",
+      "difficulty": "easy",
+      "slideText": "Solution. UberCab Concept: a fast & efficient on-demand car service. Automate dispatch to reduce wait-time. Latest consumer web & device technology. Optimized fleets and incentivized drivers.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-03.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-03.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Our solution is UberCab: a fast, efficient, on-demand car service. We automate dispatch to cut wait times, use the latest consumer web and device technology, and run an optimized fleet with incentivized drivers.",
+      "mustMentionCritical": [
+        "fast, efficient on-demand car service",
+        "automated dispatch reduces wait time",
+        "latest consumer web & device technology",
+        "optimized fleet and incentivized drivers"
+      ],
+      "mustMentionOptional": [
+        "UberCab concept name"
+      ],
+      "mustNotSay": [
+        "[N] specific wait-time minutes",
+        "[H] surge pricing",
+        "[H] ride pooling",
+        "[H] food delivery"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Solution",
+        "UberCab Concept: a fast",
+        "& efficient on-demand",
+        "car service.",
+        "Automate dispatch to",
+        "reduce wait-time.",
+        "Latest consumer web &",
+        "device technology.",
+        "Optimized fleets and",
+        "incentivized drivers."
+      ]
+    },
+    {
+      "id": "uber-04",
+      "deckId": "uber",
+      "slideNum": 4,
+      "slideType": "text-list",
+      "difficulty": "easy",
+      "slideText": "How it Works. Client must be a member to use the service. Not hailed from the street but from your phone. Guaranteed Pick-up (unlike a yellow-cab). [image: phone mockups of the Uber app]",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-04.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-04.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Membership is required to use the service. You book rides from your phone, not by hailing on the street. And unlike a yellow cab, your pick-up is guaranteed.",
+      "mustMentionCritical": [
+        "membership required",
+        "booked from your phone, not hailed on the street",
+        "guaranteed pick-up"
+      ],
+      "mustMentionOptional": [
+        "contrast with yellow cab"
+      ],
+      "mustNotSay": [
+        "[O] street hailing supported",
+        "[O] free/no-membership service",
+        "[L] driver rating system (slide 5)",
+        "[H] Uber Eats / 'Order' or addresses read off the phone mockups"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "How it Works",
+        "Uber",
+        "Get a ride",
+        "Work",
+        "1455 Market Street",
+        "1600 Michigan Street",
+        "Where to?",
+        "Client must be a member",
+        "to use the service.",
+        "Not hailed from the street",
+        "but from your phone.",
+        "Guaranteed Pick-up",
+        "(unlike a yellow-cab)"
+      ]
+    },
+    {
+      "id": "uber-05",
+      "deckId": "uber",
+      "slideNum": 5,
+      "slideType": "text-list",
+      "difficulty": "medium",
+      "slideText": "Key Differentiators. 1-click hailing: \"Pickup here in 5 mins\". Members Only: Respectable clientele. Optimized fleet: Logistical LBS software. Fast Response Time: Easier than Calling. High Tech Solution: Geo-aware Auto-dispatch. Great Drivers: Rating System.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-05.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-05.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "What sets us apart: one-click hailing that's faster and easier than calling, a members-only service with respectable clientele, geo-aware auto-dispatch with an optimized fleet, and great drivers backed by a rating system.",
+      "mustMentionCritical": [
+        "1-click hailing",
+        "fast response / easier than calling",
+        "members only - respectable clientele",
+        "geo-aware auto-dispatch and optimized fleet",
+        "great drivers - rating system"
+      ],
+      "mustMentionOptional": [
+        "'Pickup here in 5 mins' example",
+        "logistical LBS software"
+      ],
+      "mustNotSay": [
+        "[L] $1B revenue (slide 11)",
+        "[L] 15 clients (slide 13)",
+        "[H] competitor names",
+        "[N] response-time numbers other than the slide's 5-minute example"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Key Differentiators",
+        "1-click hailing",
+        "“Pickup here in 5 mins”",
+        "Members Only",
+        "Respectable clientele",
+        "Optimized fleet",
+        "Logistical LBS software",
+        "Fast Response Time",
+        "Easier than Calling",
+        "High Tech Solution",
+        "Geo-aware Auto-dispatch",
+        "Great Drivers",
+        "Rating System"
+      ]
+    },
+    {
+      "id": "uber-06",
+      "deckId": "uber",
+      "slideNum": 6,
+      "slideType": "product",
+      "difficulty": "easy",
+      "slideText": "Product. 1-Click request from Geo-aware devices. Book Trips, show Fleet status, trip history. Easy & Fast. [image: three app screenshots]",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-06.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-06.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "The product is built for speed. You request a ride with one click from any geo-aware device, and the same app lets you book trips, see fleet status, and check your trip history.",
+      "mustMentionCritical": [
+        "one-click request from geo-aware device",
+        "book trips",
+        "fleet status",
+        "trip history"
+      ],
+      "mustMentionOptional": [
+        "easy and fast"
+      ],
+      "mustNotSay": [
+        "[L] payment details (slide 9)",
+        "[H] Uber Eats, music or other features seen in the mockups",
+        "[N] prices read off the mockups ($3.33 etc.)",
+        "[H] driver earnings"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Product",
+        "Where to?",
+        "Economy",
+        "$3.33",
+        "REQUEST UBER",
+        "Work Home Zinc Gym",
+        "1-Click request from",
+        "Geo-aware devices.",
+        "Book Trips, show Fleet",
+        "status, trip history.",
+        "Easy & Fast"
+      ]
+    },
+    {
+      "id": "uber-07",
+      "deckId": "uber",
+      "slideNum": 7,
+      "slideType": "text-list",
+      "difficulty": "easy",
+      "slideText": "Use Cases. Trips to/from restaurants, bars & shows. Airport pickup/dropoff (pre-scheduled). Fast local transport where parking isn't easy. Working while commuting (wifi in cars).",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-07.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-07.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "We see four use cases: trips to and from restaurants, bars and shows; pre-scheduled airport pickups and drop-offs; fast local transport where parking isn't easy; and working while you commute, with wifi in the cars.",
+      "mustMentionCritical": [
+        "trips to/from restaurants, bars & shows",
+        "airport pickup/drop-off (pre-scheduled)",
+        "fast local transport where parking isn't easy",
+        "working while commuting (wifi in cars)"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[O] bar trips described as pre-scheduled (pre-scheduled is the airport case)",
+        "[H] specific cities or routes",
+        "[N] pricing",
+        "[H] wifi as a paid feature",
+        "[H] delivery use cases"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Use Cases",
+        "Trips to/from restaurants,",
+        "bars & shows",
+        "Airport pickup/dropoff",
+        "(pre-scheduled)",
+        "Fast local transport",
+        "where parking isn't easy",
+        "Working while",
+        "commuting (wifi in cars)"
+      ]
+    },
+    {
+      "id": "uber-08",
+      "deckId": "uber",
+      "slideNum": 8,
+      "slideType": "problem",
+      "difficulty": "easy",
+      "slideText": "User Benefits. Cabs don't guarantee pickup, can take 45 mins. Cabs aren't as safe or clean as limos. Cars services.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-08.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-08.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Cabs don't guarantee a pickup, and one can take forty-five minutes to arrive. They also aren't as safe or clean as limos. We fix both.",
+      "mustMentionCritical": [
+        "cabs don't guarantee pickup",
+        "can take 45 minutes",
+        "not as safe or clean as limos"
+      ],
+      "mustMentionOptional": [
+        "our service addresses both"
+      ],
+      "mustNotSay": [
+        "[N] safety statistics or crime data",
+        "[H] driver background-check claims",
+        "[H] limo-level pricing",
+        "[O] 'pickup that never arrives' / 'often dirty' (stronger than slide)",
+        "[H] inventing meaning for the garbled third bullet 'Cars services'"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "User Benefits",
+        "Cabs don't guarantee pickup,",
+        "can take 45 mins",
+        "Cabs aren't as safe or clean",
+        "as limos",
+        "Cars services",
+        "Uber"
+      ]
+    },
+    {
+      "id": "uber-09",
+      "deckId": "uber",
+      "slideNum": 9,
+      "slideType": "text-list",
+      "difficulty": "medium",
+      "slideText": "Technology. Mobile phones + intelligent scheduling. Payment/utilization. Reputation tracking. Patent-pending system design.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-09.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-09.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Our technology pairs mobile phones with intelligent scheduling to handle payment and keep the fleet well utilized. We track reputation to keep quality high, and the system design is patent-pending.",
+      "mustMentionCritical": [
+        "mobile phones + intelligent scheduling",
+        "payment/utilization",
+        "reputation tracking",
+        "patent-pending system design"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[O] granted/issued patent (it is pending)",
+        "[H] 'real-time' tracking (not on slide)",
+        "[H] named algorithms or AI models",
+        "[H] hardware details"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Technology",
+        "Mobile phones +",
+        "intelligent scheduling",
+        "Payment/utilization.",
+        "Reputation tracking",
+        "Patent-pending",
+        "system design",
+        "Uber"
+      ]
+    },
+    {
+      "id": "uber-10",
+      "deckId": "uber",
+      "slideNum": 10,
+      "slideType": "template-placeholder",
+      "difficulty": "hard",
+      "slideText": "Market Size. [chart: unlabeled area chart, 2011-2016, y-axis 0-45] There are X target customers in the market. At our Y pricing, this is how large this company could become. Make sure to show the math on how you came to your conclusions. For more details: https://youtu.be/M_RMTC2YmXY. Source: Forrester / Gartner / your Uncle",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-10.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-10.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Here's how we think about market size: the number of target customers in our market, multiplied by our pricing, shows how large this company could become. We'll walk through the math behind that.",
+      "mustMentionCritical": [
+        "target customers x pricing = how large the company could become",
+        "commitment to show the math"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[H] reading 'X' or 'Y' placeholders aloud as values",
+        "[H] 'your Uncle' as a source",
+        "[H] the YouTube link",
+        "[N] any number or TAM from the chart (unlabeled axis)",
+        "[N] 2011-2016 chart years as data",
+        "[L] $1B revenue (slide 11)"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Market Size",
+        "45",
+        "40",
+        "35",
+        "30",
+        "25",
+        "20",
+        "15",
+        "10",
+        "5",
+        "0",
+        "2011 2012 2013 2014 2015 2016",
+        "There are X target",
+        "customers in the",
+        "market. At our Y",
+        "pricing, this is how",
+        "large this company",
+        "could become.",
+        "Make sure to show the",
+        "math on how you came",
+        "to your conclusions.",
+        "For more details:",
+        "https://youtu.be/M_RMTC2YmXY",
+        "Source: Forrester / Gartner / your Uncle"
+      ]
+    },
+    {
+      "id": "uber-11",
+      "deckId": "uber",
+      "slideNum": 11,
+      "slideType": "text-list",
+      "difficulty": "medium",
+      "slideText": "Looking Foward. Potential Outcomes. Best-Case Scenario: Becomes market leader, $1B+ in yearly revenue. Realistic Success Scenario: Gets 5% of the top 5 US Cities. Generates 20-30M+ per year profit. Worst-Case Scenario: Remains a 10 car, 100 client service in SF. Time-saver for San-Francisco based executives.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-11.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-11.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Three outcomes. Best case: market leader, over a billion dollars in yearly revenue. Realistic: five percent of the top five US cities, twenty to thirty million in yearly profit. Worst case: a ten-car, hundred-client service in San Francisco.",
+      "mustMentionCritical": [
+        "best case: market leader, $1B+ yearly revenue",
+        "realistic: 5% of top 5 US cities",
+        "realistic: $20-30M+ yearly profit",
+        "worst case: 10-car, 100-client SF service"
+      ],
+      "mustMentionOptional": [
+        "worst case still a time-saver for SF executives"
+      ],
+      "mustNotSay": [
+        "[O] guaranteed outcomes",
+        "[H] current revenue",
+        "[H] market share outside the US",
+        "[N] mixing up revenue ($1B) and profit ($20-30M)"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Looking Foward",
+        "Potential Outcomes",
+        "Best-Case Scenario",
+        "Realistic Success Scenario",
+        "Worst-Case Scenario",
+        "Becomes market leader,",
+        "$1B+ in yearly revenue",
+        "Gets 5% of the top 5 US",
+        "Cities. Generates 20-30M+",
+        "per year profit",
+        "Remains a 10 car, 100",
+        "client service in SF. Time-",
+        "saver for San-Francisco",
+        "based executives."
+      ]
+    },
+    {
+      "id": "uber-12",
+      "deckId": "uber",
+      "slideNum": 12,
+      "slideType": "gtm",
+      "difficulty": "easy",
+      "slideText": "Go-To Market plan. Referal: Invite only from an existing member. Virality: Become the ubiquitous \"premium\" cab service.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-12.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-12.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Our go-to-market runs on referral and virality. It's invite-only, so new members join through an existing member, and the goal is to become the ubiquitous premium cab service.",
+      "mustMentionCritical": [
+        "referral: invite-only from an existing member",
+        "virality: become the ubiquitous premium cab service"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[N] paid advertising budgets",
+        "[H] specific launch cities",
+        "[H] promo codes or discounts"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Go-To Market plan",
+        "Referal",
+        "Virality",
+        "Invite only from an",
+        "existing member",
+        "Become the ubiquitous",
+        "“premium” cab service",
+        "Uber"
+      ]
+    },
+    {
+      "id": "uber-13",
+      "deckId": "uber",
+      "slideNum": 13,
+      "slideType": "traction",
+      "difficulty": "medium",
+      "slideText": "Traction. Progress to Date. October: California LLC + trademark filed. November: iPhone dev license applied for Nov. January: Bank Account + Paypal account. March: 5 advisors & 15 clients now.",
+      "slideImage": "https://voxdeck.vercel.app/marketing/uber/slides/page-13.jpg",
+      "slideImagePath": "public/marketing/uber/slides/page-13.jpg",
+      "deckContext": "Uber (UberCab) 2008 seed pitch: on-demand car service booked from your phone, launching in San Francisco.",
+      "goldenScript": "Our progress so far: a California LLC and trademark filing in October, an iPhone developer license application in November, and bank and PayPal accounts in January. Today we have five advisors and fifteen clients.",
+      "mustMentionCritical": [
+        "California LLC + trademark filed",
+        "iPhone dev license applied for (not granted)",
+        "bank + PayPal accounts",
+        "5 advisors",
+        "15 clients"
+      ],
+      "mustMentionOptional": [
+        "months: Oct LLC+trademark, Nov dev license, Jan bank+PayPal, Mar advisors/clients"
+      ],
+      "mustNotSay": [
+        "[O] dev license secured/granted (it was applied for)",
+        "[O] 'we're live'",
+        "[N] wrong month-to-milestone mapping",
+        "[N] revenue figures",
+        "[N] thousands of users",
+        "[N] funding raised",
+        "[O] App Store launch"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "Traction",
+        "Progress to Date",
+        "November",
+        "iPhone dev license applied",
+        "for Nov",
+        "March",
+        "5 advisors & 15 clients",
+        "now",
+        "October",
+        "California LLC +",
+        "trademark filed",
+        "January",
+        "Bank Account + Paypal",
+        "account"
+      ]
+    },
+    {
+      "id": "meesho-01",
+      "deckId": "meesho",
+      "slideNum": 1,
+      "slideType": "title",
+      "difficulty": "easy",
+      "slideText": "meesho. Turning Housewives into entrepreneurs. [photo: two women holding phones showing the Meesho Supply app]",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-01.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-01.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Meesho is turning housewives into entrepreneurs, giving them an app to run their own reselling business straight from their phone.",
+      "mustMentionCritical": [
+        "turning housewives into entrepreneurs"
+      ],
+      "mustMentionOptional": [
+        "Meesho Supply app on a phone"
+      ],
+      "mustNotSay": [
+        "[N] funding amounts",
+        "[N] specific metrics",
+        "[L] investor names (slide 17)"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "meesho",
+        "Turning Housewives",
+        "into entrepreneurs",
+        "meesho Supply"
+      ]
+    },
+    {
+      "id": "meesho-02",
+      "deckId": "meesho",
+      "slideNum": 2,
+      "slideType": "problem",
+      "difficulty": "easy",
+      "slideText": "WHY SOCIAL SELLING? 200M+ Housewives in India Lots of Free Time Need Secondary Income SOCIAL SELLING Highly Social",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-02.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-02.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "There are over two hundred million housewives in India. They have lots of free time, they need a secondary income, and they're highly social. That makes social selling a natural fit.",
+      "mustMentionCritical": [
+        "200M+ housewives in India",
+        "lots of free time",
+        "need secondary income",
+        "highly social"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[N] employment/labor statistics",
+        "[N] smartphone penetration numbers",
+        "[N] income figures in rupees"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "WHY SOCIAL SELLING?",
+        "200M+",
+        "Housewives in India",
+        "Lots of Free Time Need Secondary Income Highly Social",
+        "SOCIAL SELLING"
+      ]
+    },
+    {
+      "id": "meesho-03",
+      "deckId": "meesho",
+      "slideNum": 3,
+      "slideType": "concept",
+      "difficulty": "medium",
+      "slideText": "SOCIAL SELLING 2.0 (Since Ancient Times) Local Boutiques/ Exhibitions (Since 2014) Multimedia Sharing became popular Dropshipping (Reselling) Kitty Parties 100X OPPORTUNITY • Direct Selling • (Amway Annual Revenue $1B) • 3 More Lucrative (Wider Collection & Reach) Low Barriers of Entry (No Investment) High Convenience (On Smartphone)",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-03.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-03.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Social selling is ancient, from local boutiques and kitty parties to Amway's billion-dollar direct selling. Since 2014, multimedia sharing has turned it into reselling on WhatsApp and Facebook: a hundred-times opportunity, with wider reach, zero investment and just a smartphone.",
+      "mustMentionCritical": [
+        "old model: boutiques/exhibitions, kitty parties, direct selling (Amway $1B)",
+        "since 2014: dropshipping/reselling via multimedia sharing",
+        "100x opportunity",
+        "more lucrative, no investment, on smartphone"
+      ],
+      "mustMentionOptional": [
+        "WhatsApp, Instagram, Facebook logos"
+      ],
+      "mustNotSay": [
+        "[N] revenue comparisons other than Amway $1B",
+        "[H] calling it e-commerce",
+        "[H] Amway partnership claims"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "SOCIAL SELLING 2.0",
+        "(Since Ancient Times) (Since 2014)",
+        "Local Boutiques/ Exhibitions",
+        "Dropshipping",
+        "Multimedia Sharing",
+        "became popular",
+        "(Reselling)",
+        "Kitty Parties",
+        "100X OPPORTUNITY",
+        "More Lucrative (Wider Collection & Reach)",
+        "•",
+        "Direct Selling",
+        "Low Barriers of Entry (No Investment)",
+        "•",
+        "(Amway Annual Revenue $1B)",
+        "High Convenience (On Smartphone)",
+        "•",
+        "3"
+      ]
+    },
+    {
+      "id": "meesho-04",
+      "deckId": "meesho",
+      "slideNum": 4,
+      "slideType": "chart",
+      "difficulty": "medium",
+      "slideText": "FAST GROWING MARKET! #Housewives Resellers ~0 2M (2014) (2017) 65% YoY 23M (2022 proj.) X Avg. Sales/ Reseller/ Month $330 (2017) = Total Addressable Market (TAM) $8B (2017) 4 50% YoY $50B (2022 proj.) SOURCE: ZINNOV CONSULTING",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-04.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-04.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "The market is growing fast. India had about two million housewife resellers in 2017, projected to reach twenty-three million by 2022. At three hundred thirty dollars a month each, that's an eight-billion-dollar market heading to fifty billion.",
+      "mustMentionCritical": [
+        "resellers 2M (2017) -> 23M (2022 proj.)",
+        "TAM $8B (2017) -> $50B (2022 proj.)"
+      ],
+      "mustMentionOptional": [
+        "$330 avg sales/reseller/month",
+        "~0 in 2014",
+        "65% and 50% YoY growth",
+        "source Zinnov Consulting"
+      ],
+      "mustNotSay": [
+        "[N] $100B+ market figures",
+        "[N] wrong years (2025/2030)",
+        "[H] overall e-commerce market size",
+        "[O] 2022 figures stated as achieved"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "FAST GROWING MARKET!",
+        "#Housewives Resellers",
+        "~0 2M 65% YoY 23M",
+        "(2014) (2017) (2022 proj.)",
+        "X",
+        "$330",
+        "Avg. Sales/ Reseller/ Month",
+        "(2017)",
+        "=",
+        "50% YoY",
+        "$8B $50B",
+        "Total Addressable Market (TAM)",
+        "(2017) (2022 proj.)",
+        "SOURCE: ZINNOV CONSULTING",
+        "4"
+      ]
+    },
+    {
+      "id": "meesho-05",
+      "deckId": "meesho",
+      "slideNum": 5,
+      "slideType": "comparable",
+      "difficulty": "medium",
+      "slideText": "RESELLING KOUDAI IN CHINA Weidian (Koudai) Launched in Jan 2014 Tools for Resellers on WeChat 50M $10B #Resellers on Weidian GMV Run Rate (Feb 2015) 70% $1.5B Shops from Tier 3 cities or below Valuation at last round Raised $ 350 mn from Tencent,Others 5",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-05.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-05.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "China's Weidian proves the model. Launched in 2014 with reseller tools on WeChat, it reached fifty million resellers and a ten-billion-dollar GMV run rate by February 2015, with seventy percent of shops in Tier 3 cities or smaller.",
+      "mustMentionCritical": [
+        "Weidian (Koudai), China, launched Jan 2014",
+        "50M resellers",
+        "$10B GMV run rate (Feb 2015)",
+        "70% of shops Tier 3 or below"
+      ],
+      "mustMentionOptional": [
+        "reseller tools on WeChat",
+        "$350M raised from Tencent and others",
+        "$1.5B valuation"
+      ],
+      "mustNotSay": [
+        "[H] Alibaba or Amazon as the proof case",
+        "[O] presenting Weidian's numbers as Meesho's",
+        "[N] 'GMV of $10B' without 'run rate'",
+        "[N] wrong figures"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "RESELLING IN CHINA",
+        "Weidian (Koudai)",
+        "Launched in Jan 2014",
+        "WeChat",
+        "Tools for Resellers on",
+        "50M $10B",
+        "#Resellers on Weidian",
+        "GMV Run Rate (Feb 2015)",
+        "70% $1.5B",
+        "Shops from Tier 3 cities or below Valuation at last round",
+        "Raised $ 350 mn from Tencent,Others",
+        "5"
+      ]
+    },
+    {
+      "id": "meesho-06",
+      "deckId": "meesho",
+      "slideNum": 6,
+      "slideType": "diagram",
+      "difficulty": "hard",
+      "slideText": "WHY CONSUMERS BUY FROM BUY? RESELLERS? WHY CONSUMERS Impulse Shopping Intent Shopping No need; Unique & Trendy Products Specific need; Need variety PERSONAL SHOPPER EXPERIENCE SOCIAL-PROOFED OUTBOUND INBOUND Social Selling CONSUMER OUTBOUND Ads 6",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-06.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-06.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Consumers shop in two ways. With intent, they go looking on Amazon or Flipkart. On impulse, they respond to what reaches them, and a reseller's social-proofed recommendation works like a personal shopper, beating a Facebook ad.",
+      "mustMentionCritical": [
+        "impulse vs intent shopping",
+        "intent = inbound to Amazon/Flipkart",
+        "impulse = outbound",
+        "social selling = social-proofed outbound / personal shopper vs plain ads"
+      ],
+      "mustMentionOptional": [
+        "impulse: no need, unique & trendy products",
+        "intent: specific need, variety"
+      ],
+      "mustNotSay": [
+        "[O] social selling described as INBOUND (the slide shows it as social-proofed outbound",
+        "inbound is Amazon/Flipkart)",
+        "[O] 'three reasons' (slide shows two modes)",
+        "[H] discounts or lowest price as the reason",
+        "[N] ad spend figures"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "WHY CONSUMERS BUY?",
+        "WHY CONSUMERS BUY FROM RESELLERS?",
+        "Impulse Shopping Intent Shopping",
+        "No need; Unique & Trendy Products Specific need; Need variety",
+        "PERSONAL SHOPPER EXPERIENCE",
+        "SOCIAL-PROOFED",
+        "OUTBOUND",
+        "INBOUND",
+        "Social Selling",
+        "CONSUMER",
+        "OUTBOUND",
+        "Ads",
+        "6"
+      ]
+    },
+    {
+      "id": "meesho-07",
+      "deckId": "meesho",
+      "slideNum": 7,
+      "slideType": "problem",
+      "difficulty": "easy",
+      "slideText": "HARD TO BE A RESELLER! It is very hard for a housewife to be a reseller because: Difficult Access to Supply No Price Visibility Low Trust b/w Resellers & Suppliers Personal connections or untrustworthy sourcing from FB; Larger suppliers inaccessible Cheated with high prices from Resellers No COD, No Returns, Many Fraud cases 7",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-07.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-07.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "It's very hard for a housewife to be a reseller. Supply is hard to access, prices aren't visible so resellers get overcharged, and trust is low, with no cash on delivery, no returns and frequent fraud.",
+      "mustMentionCritical": [
+        "difficult access to supply",
+        "no price visibility (overcharged)",
+        "low trust between resellers and suppliers"
+      ],
+      "mustMentionOptional": [
+        "no COD, no returns, fraud cases",
+        "sourcing via personal connections / Facebook",
+        "larger suppliers inaccessible"
+      ],
+      "mustNotSay": [
+        "[H] blaming named companies",
+        "[N] logistics cost figures",
+        "[O] COD/returns as already solved"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "HARD TO BE A RESELLER!",
+        "It is very hard for a housewife to be a reseller because:",
+        "Difficult Access Low Trust b/w",
+        "No Price Visibility",
+        "to Supply Resellers & Suppliers",
+        "Personal connections or",
+        "untrustworthy sourcing from FB; Cheated with high prices from Resellers No COD, No Returns, Many Fraud cases",
+        "Larger suppliers inaccessible",
+        "7"
+      ]
+    },
+    {
+      "id": "meesho-08",
+      "deckId": "meesho",
+      "slideNum": 8,
+      "slideType": "solution",
+      "difficulty": "medium",
+      "slideText": "OUR SOLUTION Curated Marketplace to connect Resellers & Trusted Suppliers Trusted Suppliers Lowest Prices New Supply Only verified manufacturers/ wholesalers allowed Price comparison, drives competition among suppliers, lowering prices Bigger Suppliers added in this ecosystem, who couldn't take orders on WhatsApp Dispute Resolution Transparency Data-Driven Curation Support Staff resolves timely disputes b/w suppliers & resellers Return Policies, COD, Supplier Ratings Based on data from FB pages, App transactions 8",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-08.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-08.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Our solution is a curated marketplace connecting resellers with trusted, verified suppliers. Price comparison makes suppliers compete, bigger suppliers join who couldn't take WhatsApp orders, and our team resolves disputes, with COD, returns and supplier ratings.",
+      "mustMentionCritical": [
+        "curated marketplace",
+        "verified suppliers only",
+        "price comparison drives competition / lower prices",
+        "bigger suppliers added",
+        "dispute resolution"
+      ],
+      "mustMentionOptional": [
+        "COD, return policies, supplier ratings",
+        "data-driven curation (FB pages, app transactions)"
+      ],
+      "mustNotSay": [
+        "[H] Meesho holding inventory",
+        "[H] owned delivery fleet",
+        "[N] commission rates",
+        "[O] 'guaranteed lowest prices for every seller'"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "OUR SOLUTION",
+        "Curated Marketplace to connect Resellers & Trusted Suppliers",
+        "Lowest Prices New Supply",
+        "Trusted Suppliers",
+        "Price comparison, drives competition Bigger Suppliers added in this ecosystem,",
+        "Only verified manufacturers/",
+        "among suppliers, lowering prices who couldn't take orders on WhatsApp",
+        "wholesalers allowed",
+        "Dispute Resolution Transparency",
+        "Data-Driven Curation",
+        "Support Staff resolves timely disputes Return Policies, COD,",
+        "Based on data from FB pages,",
+        "b/w suppliers & resellers Supplier Ratings",
+        "App transactions",
+        "8"
+      ]
+    },
+    {
+      "id": "meesho-09",
+      "deckId": "meesho",
+      "slideNum": 9,
+      "slideType": "product",
+      "difficulty": "easy",
+      "slideText": "PRODUCT CURATED COLLECTIONS EASY SOCIAL SHARING SUPPLIER PRICE/ RATINGS 9 ORDER TRACKING",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-09.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-09.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "The app has four core pieces: curated collections, easy social sharing, supplier prices and ratings, and order tracking. Everything a reseller needs runs from their phone.",
+      "mustMentionCritical": [
+        "curated collections",
+        "easy social sharing",
+        "supplier price/ratings",
+        "order tracking"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[H] inventory management (resellers hold no inventory)",
+        "[N] prices or supplier names read off the screenshots",
+        "[N] app download counts",
+        "[H] features not on the slide"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "PRODUCT",
+        "CURATED COLLECTIONS EASY SOCIAL SHARING SUPPLIER PRICE/ RATINGS ORDER TRACKING",
+        "9"
+      ]
+    },
+    {
+      "id": "meesho-10",
+      "deckId": "meesho",
+      "slideNum": 10,
+      "slideType": "chart",
+      "difficulty": "hard",
+      "slideText": "CONSISTENT GROWTH Monthly GMV ($) Monthly Orders 110000 11000 10797 1,05,449 82500 8250 60,562 55000 27500 Launched MVP on WhatsApp 5500 Launched App 2750 27,212 5448 Launched MVP on WhatsApp Launched App 2411 13,309 0 3,314 6,624 Nov Dec Jan 15,482 10,050 Feb Mar Apr May 0 June 96 269 355 530 Nov Dec Jan Feb 1122 Mar Apr May June 100% MoM Growth 10 *Per Week",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-10.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-10.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Growth has been consistent, at a hundred percent month on month. Since launching our MVP on WhatsApp and then the app, monthly GMV has grown from about three thousand dollars to over a hundred thousand.",
+      "mustMentionCritical": [
+        "100% MoM growth",
+        "WhatsApp MVP then app launch",
+        "monthly GMV ~$3.3K (Nov) -> ~$105K (June)"
+      ],
+      "mustMentionOptional": [
+        "orders ~96 -> ~10,800 (chart titled 'Monthly Orders' but footnote says 'Per Week' - either reading is OK if hedged)"
+      ],
+      "mustNotSay": [
+        "[N] GMV or order figures not on the chart",
+        "[H] annualized revenue",
+        "[O] profitability claims"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "CONSISTENT GROWTH",
+        "Monthly GMV ($) Monthly Orders",
+        "110000 11000",
+        "10797",
+        "1,05,449",
+        "82500 8250",
+        "60,562",
+        "55000 5500",
+        "5448",
+        "Launched MVP Launched MVP",
+        "Launched App Launched App",
+        "on WhatsApp on WhatsApp",
+        "27500 2750",
+        "27,212",
+        "2411",
+        "15,482",
+        "13,309",
+        "10,050 1122",
+        "6,624 96 269 355 530",
+        "3,314",
+        "0 0",
+        "Nov Dec Jan Feb Mar Apr May June Nov Dec Jan Feb Mar Apr May June",
+        "100%",
+        "MoM Growth",
+        "10 *Per Week"
+      ]
+    },
+    {
+      "id": "meesho-11",
+      "deckId": "meesho",
+      "slideNum": 11,
+      "slideType": "chart",
+      "difficulty": "hard",
+      "slideText": "STRONG USER ENGAGEMENT Product Shares / User/ Day Monthly Product Shares 60 14,00,000 1,362,889 12,00,000 51 52 45 10,00,000 928,045 55 54 55 55 54 54 52 53 52 46 44 44 39 8,00,000 30 6,00,000 4,00,000 405,424 2,00,000 0 15 208,010 17,381 Feb Mar Apr May 0 Mar 6 Mar 20 Apr 3 Apr 17 May 1 May 15May 29Jun 12 June 12 25 mins Sessions/ Day/ User Timespent/ Day/ User 11",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-11.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-11.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Engagement is strong. Resellers share around fifty-five products a day each, across twelve sessions and twenty-five minutes. Monthly product shares have climbed past 1.3 million.",
+      "mustMentionCritical": [
+        "25 min time spent/day/user",
+        "~55 product shares/user/day",
+        "monthly product shares past 1.3M"
+      ],
+      "mustMentionOptional": [
+        "12 sessions/day/user",
+        "shares/user/day up from 39 in early March"
+      ],
+      "mustNotSay": [
+        "[L] WAU/DAU ratio (slide 12)",
+        "[N] session count other than 12",
+        "[N] share counts beyond what the chart shows"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "STRONG USER ENGAGEMENT",
+        "Product Shares / User/ Day",
+        "Monthly Product Shares",
+        "60",
+        "14,00,000",
+        "1,362,889",
+        "55 55 55",
+        "12,00,000",
+        "54 54 54",
+        "53",
+        "52 52 52",
+        "51",
+        "45",
+        "10,00,000 46",
+        "44 44",
+        "928,045",
+        "39",
+        "8,00,000",
+        "30",
+        "6,00,000",
+        "4,00,000",
+        "405,424",
+        "15",
+        "2,00,000",
+        "208,010",
+        "17,381",
+        "0",
+        "0",
+        "Feb Mar Apr May June",
+        "Mar 6 Mar 20 Apr 3 Apr 17 May 1 May 15May 29Jun 12",
+        "12",
+        "25 mins",
+        "Sessions/ Day/ User",
+        "Timespent/ Day/ User",
+        "11"
+      ]
+    },
+    {
+      "id": "meesho-12",
+      "deckId": "meesho",
+      "slideNum": 12,
+      "slideType": "chart",
+      "difficulty": "hard",
+      "slideText": "HIGH USER RETENTION GMV Retention Reseller Retention 100% 100% 75% 75% 100% 50% 100% 55% 58% 51% 49% 52% 50% 55% 58% 46% 51% 50% 55% 35% 33% 33% 32% 32% 31% 25% 25% 0% Week 0 Week 2 Week 4 Week 6 Week 8 Week 10 0% Week 0 Week 2 Week 4 Week 6 Week 8 Week 10 1.4 WAU/ DAU 12 30% 29% 30% 30% 28%",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-12.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-12.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Retention is high. About half of GMV is still coming in by week ten, and roughly thirty percent of resellers are still active. Our WAU to DAU ratio sits at 1.4.",
+      "mustMentionCritical": [
+        "GMV retention ~50-55% through week 10",
+        "reseller retention ~30% through week 10"
+      ],
+      "mustMentionOptional": [
+        "WAU/DAU 1.4"
+      ],
+      "mustNotSay": [
+        "[N] retention figures other than ~50% GMV / ~30% resellers",
+        "[N] churn statistics",
+        "[O] 100% retention",
+        "[L] time-spent or shares (slide 11)"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "HIGH USER RETENTION",
+        "GMV Retention Reseller Retention",
+        "100% 100%",
+        "100% 100%",
+        "75% 75%",
+        "58% 58%",
+        "50% 55% 55% 55% 50%",
+        "52%",
+        "51% 51%",
+        "50%",
+        "49%",
+        "46%",
+        "35%",
+        "33% 33%",
+        "32% 32%",
+        "25% 25% 31%",
+        "30% 30% 30%",
+        "29%",
+        "28%",
+        "0% 0%",
+        "Week 0 Week 2 Week 4 Week 6 Week 8 Week 10 Week 0 Week 2 Week 4 Week 6 Week 8 Week 10",
+        "1.4",
+        "WAU/ DAU",
+        "12"
+      ]
+    },
+    {
+      "id": "meesho-13",
+      "deckId": "meesho",
+      "slideNum": 13,
+      "slideType": "chart",
+      "difficulty": "hard",
+      "slideText": "RESELLERS GROWTH DAU Sharing Resellers Ordering Resellers 4000 #Resellers (Daily Average) 3,052 3,078 3000 3,226 2,768 2,550 2,345 1,947 2000 1,605 1,316 1,000 1000 380 98 38 0 10 Feb 20 212 109 24 143 31 Mar 06 390 143 28 504 214 37 Mar 20 540 198 40 577 202 51 Apr 3 645 230 66 755 329 269 92 69 Apr 17 13 442 122 May 1 501 131 581 157 May 15 625 183 699 216 May 29 770 237 783 804 843 223 293 330 Jun 12 Jun 26",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-13.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-13.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Our reseller base keeps growing. Daily active resellers rose from under a hundred in February to over three thousand by late June, with sharing and ordering resellers climbing alongside.",
+      "mustMentionCritical": [
+        "daily active resellers ~100 (Feb) -> 3,000+ (late June)",
+        "sharing and ordering resellers also rising"
+      ],
+      "mustMentionOptional": [
+        "~840 sharing and ~330 ordering resellers by Jun 26"
+      ],
+      "mustNotSay": [
+        "[N] millions of resellers (chart is hundreds-to-thousands)",
+        "[N] invented exact counts",
+        "[L] 2M resellers (slide 14 target)"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "RESELLERS GROWTH",
+        "13",
+        ")egarevA",
+        "yliaD(",
+        "srelleseR#",
+        "DAU Sharing Resellers Ordering Resellers",
+        "4000",
+        "3,226",
+        "3,078",
+        "3,052",
+        "3000",
+        "2,768",
+        "2,550",
+        "2,345",
+        "1,947",
+        "2000",
+        "1,605",
+        "1,316",
+        "1,000",
+        "1000 843",
+        "804",
+        "755 770 783",
+        "699",
+        "645",
+        "625",
+        "577 581",
+        "540",
+        "504 501",
+        "442",
+        "380 390",
+        "329",
+        "269",
+        "212 214 198 202 230",
+        "330",
+        "143 143 293",
+        "98 109 216 237 223",
+        "38 183",
+        "157",
+        "122 131",
+        "92",
+        "0 10 24 31 28 37 40 51 66 69",
+        "Feb 20 Mar 06 Mar 20 Apr 3 Apr 17 May 1 May 15 May 29 Jun 12 Jun 26"
+      ]
+    },
+    {
+      "id": "meesho-14",
+      "deckId": "meesho",
+      "slideNum": 14,
+      "slideType": "gtm",
+      "difficulty": "hard",
+      "slideText": "ACQUISITION CRACKED! 0 - 20,000 active resellers 20,000 - 2M active resellers Database of 200K Resellers targeted via: Referral for Revenue Share Online Training of Housewives DARK HORSE SMS Campaigns $2/ transacting user WhatsApp Reachout Offline Ads (Women Magazines) 14",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-14.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-14.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "For the first twenty thousand resellers, we target a two-hundred-thousand database through SMS and WhatsApp, at two dollars per transacting user. To reach two million, we add revenue-share referrals, online training and women's magazine ads.",
+      "mustMentionCritical": [
+        "two stages: 0-20K and 20K-2M active resellers (plan, not achieved)",
+        "stage 1: 200K database via SMS + WhatsApp",
+        "~$2 per transacting user",
+        "stage 2: referral revenue share, online training, offline ads in women's magazines"
+      ],
+      "mustMentionOptional": [
+        "referral flagged as 'dark horse'"
+      ],
+      "mustNotSay": [
+        "[O] having already reached 2M resellers (it is a plan)",
+        "[N] '$2 per user' or '$2 per download' (it is per transacting user)",
+        "[N] wrong database size",
+        "[O] mixing up which channels belong to which stage"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "ACQUISITION CRACKED!",
+        "0 - 20,000 active resellers 20,000 - 2M active resellers",
+        "Database of 200K Resellers",
+        "targeted via:",
+        "Referral for Online Training",
+        "Revenue Share of Housewives",
+        "DARK HORSE",
+        "WhatsApp",
+        "SMS Campaigns",
+        "Reachout",
+        "$2/ transacting user",
+        "Offline Ads",
+        "(Women Magazines)",
+        "14"
+      ]
+    },
+    {
+      "id": "meesho-15",
+      "deckId": "meesho",
+      "slideNum": 15,
+      "slideType": "market",
+      "difficulty": "medium",
+      "slideText": "NEXT BIG DISTRIBUTION CHANNEL E-Commerce Social Selling 2.0 STRUGGLING TO GO BEYOND 40M SHOPPERS PATH TO 500M SHOPPERS ONLINE Modern Retail Traditional Direct Selling STRUGGLING TO GROW HIGH FRICTION , LOW VARIETY & OUTDATED 15",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-15.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-15.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "E-commerce is struggling to get beyond forty million shoppers, modern retail is struggling to grow, and traditional direct selling is outdated. Social selling 2.0 is the path to five hundred million shoppers online.",
+      "mustMentionCritical": [
+        "e-commerce stuck ~40M shoppers",
+        "social selling 2.0 as path to 500M online shoppers"
+      ],
+      "mustMentionOptional": [
+        "modern retail struggling to grow",
+        "direct selling high friction, low variety, outdated"
+      ],
+      "mustNotSay": [
+        "[O] 500M buyers today (it is a target)",
+        "[N] total internet user numbers"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "NEXT BIG DISTRIBUTION CHANNEL",
+        "E-Commerce Social Selling 2.0",
+        "STRUGGLING TO GO BEYOND 40M SHOPPERS PATH TO 500M SHOPPERS ONLINE",
+        "Modern Retail",
+        "Traditional Direct Selling",
+        "STRUGGLING TO GROW",
+        "HIGH FRICTION , LOW VARIETY & OUTDATED",
+        "15"
+      ]
+    },
+    {
+      "id": "meesho-16",
+      "deckId": "meesho",
+      "slideNum": 16,
+      "slideType": "team",
+      "difficulty": "medium",
+      "slideText": "PASSIONATE & CAPABLE TEAM Vidit Aatrey Sanjeev Barnwal Prateek Agarwal CEO & Founder CTO & Founder COO ITC, InMobi IIT Delhi ‘12 Sony (Tokyo) IIT Delhi ‘12 Product, Tech Founder (Bite Club), Housing IIT KGP ‘13 Operations, BD Product, Growth Mitakshara Sharma Pavan Patil Chushul Suri Dhruv C. Category Manager Android Dev. Growth Hacker Operations Manager Style Tag, Snapdeal NIFT Ex-Founder, Samsung IIT Rourkee ’14 Gen Y IIT Rourkee ’15 IIT Bombay ’16 16",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-16.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-16.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Our founders, Vidit and Sanjeev, are IIT Delhi graduates with experience at ITC, InMobi and Sony in Tokyo. Our COO Prateek, from IIT Kharagpur, founded Bite Club and worked at Housing.",
+      "mustMentionCritical": [
+        "founders Vidit Aatrey (CEO) and Sanjeev Barnwal (CTO), IIT Delhi",
+        "ITC/InMobi (Vidit), Sony Tokyo (Sanjeev)",
+        "COO Prateek Agarwal, IIT KGP, ex-Bite Club founder, Housing"
+      ],
+      "mustMentionOptional": [
+        "wider team: category, Android, growth, operations"
+      ],
+      "mustNotSay": [
+        "[O] Housing attributed to the founders (it is the COO's)",
+        "[H] wrong employer names",
+        "[L] investor names (slide 17)",
+        "[H] invented degrees"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "PASSIONATE & CAPABLE TEAM",
+        "Vidit Aatrey",
+        "Sanjeev Barnwal Prateek Agarwal",
+        "CEO & Founder",
+        "CTO & Founder COO",
+        "ITC, InMobi Sony (Tokyo) Founder (Bite Club), Housing",
+        "IIT Delhi ‘12 IIT Delhi ‘12 IIT KGP ‘13",
+        "Product, Growth Product, Tech Operations, BD",
+        "Mitakshara Sharma Pavan Patil Chushul Suri Dhruv C.",
+        "Category Manager Android Dev. Growth Hacker Operations Manager",
+        "Style Tag, Snapdeal Ex-Founder, Samsung Gen Y",
+        "NIFT IIT Rourkee ’14 IIT Rourkee ’15 IIT Bombay ’16",
+        "16"
+      ]
+    },
+    {
+      "id": "meesho-17",
+      "deckId": "meesho",
+      "slideNum": 17,
+      "slideType": "investors",
+      "difficulty": "medium",
+      "slideText": "STRATEGIC INVESTORS Venture Highway Eric Kwan Kashyap Deorah Advised by Neeraj Arora Investor in Shyp, Postmates, Munchery Founder, Hypertrack Rajul Garg Sundeep Madra Maninder Gulati Founder, Pine Labs & Globallogic Investor in Uber, Slack, Zenefits Chief Strategy Officer, Oyo Rooms Venkatesh Karnam Investopad Google 17",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-17.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-17.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "We're backed by Venture Highway, advised by Neeraj Arora, plus Y Combinator, Investopad, and angels including Pine Labs founder Rajul Garg, Eric Kwan, Sundeep Madra, Kashyap Deorah, Maninder Gulati and Venkatesh Karnam.",
+      "mustMentionCritical": [
+        "Venture Highway",
+        "named angels (at least Rajul Garg, Eric Kwan, Sundeep Madra)"
+      ],
+      "mustMentionOptional": [
+        "Y Combinator (logo only - text-only models can't see it)",
+        "Investopad",
+        "Neeraj Arora advises Venture Highway",
+        "Kashyap Deorah, Maninder Gulati, Venkatesh Karnam"
+      ],
+      "mustNotSay": [
+        "[H] Sequoia, Accel or other funds not on the slide",
+        "[N] investment amounts",
+        "[O] Neeraj Arora as a direct investor (slide: advises Venture Highway)",
+        "[H] wrong investor names"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "STRATEGIC INVESTORS",
+        "Venture Highway Eric Kwan Kashyap Deorah",
+        "Advised by Neeraj Arora Investor in Shyp, Postmates, Munchery Founder, Hypertrack",
+        "Rajul Garg Sundeep Madra Maninder Gulati",
+        "Founder, Pine Labs & Globallogic Investor in Uber, Slack, Zenefits Chief Strategy Officer, Oyo Rooms",
+        "Venkatesh Karnam",
+        "Investopad",
+        "Google",
+        "17"
+      ]
+    },
+    {
+      "id": "meesho-18",
+      "deckId": "meesho",
+      "slideNum": 18,
+      "slideType": "ask",
+      "difficulty": "medium",
+      "slideText": "PLAN & ASK YR 1 YR 2 GMV RR $20M $100M ORDERS/ DAY 3500 17500 WEEKLY TRANSACTING RESELLERS 15,000 75,000 Seed Round Series A Feb ’16 & Aug ‘16 Now $625K $3M $200K in Bank 18",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-18.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-18.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "We're raising a three-million-dollar Series A, after six hundred twenty-five thousand in seed. The plan: grow our GMV run rate from twenty million dollars in year one to a hundred million in year two.",
+      "mustMentionCritical": [
+        "raising $3M Series A",
+        "GMV run rate $20M (Yr1) -> $100M (Yr2)"
+      ],
+      "mustMentionOptional": [
+        "$625K seed (Feb & Aug '16)",
+        "$200K in bank",
+        "orders/day 3,500 -> 17,500",
+        "weekly transacting resellers 15K -> 75K"
+      ],
+      "mustNotSay": [
+        "[N] wrong ask amount ($5M, $30M)",
+        "[O] seed terms described as the current raise",
+        "[O] profitability promises",
+        "[N] GMV run rate stated as revenue"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "PLAN & ASK",
+        "YR 1 YR 2",
+        "$20M $100M",
+        "GMV RR",
+        "3500 17500",
+        "ORDERS/ DAY",
+        "75,000",
+        "WEEKLY TRANSACTING 15,000",
+        "RESELLERS",
+        "Seed Round Series A",
+        "Feb ’16 & Aug ‘16 Now",
+        "$625K",
+        "$3M",
+        "$200K in Bank",
+        "18"
+      ]
+    },
+    {
+      "id": "meesho-19",
+      "deckId": "meesho",
+      "slideNum": 19,
+      "slideType": "closing",
+      "difficulty": "easy",
+      "slideText": "THANK YOU! Vidit Aatrey vidit@meesho.com",
+      "slideImage": "https://voxdeck.vercel.app/marketing/meesho/slides/page-19.jpg",
+      "slideImagePath": "public/marketing/meesho/slides/page-19.jpg",
+      "deckContext": "Meesho 2016 Series A pitch: social-selling marketplace turning Indian housewives into resellers, starting on WhatsApp.",
+      "goldenScript": "Thank you. I'm Vidit Aatrey, and you can reach me at vidit at meesho dot com to talk about next steps.",
+      "mustMentionCritical": [
+        "thank-you close",
+        "Vidit Aatrey",
+        "vidit@meesho.com"
+      ],
+      "mustMentionOptional": [],
+      "mustNotSay": [
+        "[H] investor names (they are only in the hidden PDF text layer, not visible on this slide)",
+        "[H] phone numbers",
+        "[H] other team members' contacts",
+        "[O] a new pitch ask"
+      ],
+      "reviewStatus": "draft - needs human review",
+      "slideLines": [
+        "THANK YOU!",
+        "Vidit Aatrey",
+        "vidit@meesho.com"
+      ]
+    }
+  ],
+  "notes": {
+    "slideText": "Flat visible text, one line (matches the Google Sheet).",
+    "slideLines": "The same text broken into lines the way Cloud Vision returns them. The runner's text mode feeds these, because structureSlideContent derives title/body from line breaks. Meesho: pdfplumber text layer (slides 1 and 19 replaced with the visible text; slide 5 title de-garbled). Uber: transcribed from the slide images, including chart axis labels and app-mockup text Vision would pick up."
+  }
+}
